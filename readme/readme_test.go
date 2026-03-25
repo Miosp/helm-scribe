@@ -97,3 +97,40 @@ func TestGenerate_NoSection(t *testing.T) {
 		t.Errorf("missing row, got:\n%s", result)
 	}
 }
+
+func TestInsertIntoReadme_BetweenMarkers(t *testing.T) {
+	existing := "# My Chart\n\nSome intro text\n\n<!-- helm-scribe:start -->\nold content here\n<!-- helm-scribe:end -->\n\n## Other manual content\n"
+
+	table := "| Key | Description | Default |\n|-----|-------------|--------|\n| `key` | Desc | `val` |\n"
+
+	result, err := InsertIntoReadme(existing, table)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(result, "<!-- helm-scribe:start -->") {
+		t.Error("missing start marker")
+	}
+	if !strings.Contains(result, "<!-- helm-scribe:end -->") {
+		t.Error("missing end marker")
+	}
+	if strings.Contains(result, "old content here") {
+		t.Error("old content not replaced")
+	}
+	if !strings.Contains(result, "| `key` |") {
+		t.Errorf("new content missing, got:\n%s", result)
+	}
+	if !strings.Contains(result, "## Other manual content") {
+		t.Error("manual content after markers was lost")
+	}
+}
+
+func TestInsertIntoReadme_NoMarkers(t *testing.T) {
+	existing := "# My Chart\n\nSome text\n"
+	table := "| Key |\n"
+
+	_, err := InsertIntoReadme(existing, table)
+	if err == nil {
+		t.Error("expected error for missing markers")
+	}
+}
