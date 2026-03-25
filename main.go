@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,36 +8,50 @@ import (
 	"github.com/miosp/helm-scribe/config"
 	"github.com/miosp/helm-scribe/parser"
 	"github.com/miosp/helm-scribe/readme"
+	"github.com/spf13/cobra"
 )
 
+var rootCmd = &cobra.Command{
+	Use:   "helm-scribe [chart-directory]",
+	Short: "Generate README parameters table from Helm values.yaml",
+	Long:  "helm-scribe reads a Helm chart's values.yaml and generates\na parameters table in README.md between helm-scribe markers.",
+	Args:  cobra.MaximumNArgs(1),
+	RunE:  execute,
+}
+
+func init() {
+	f := rootCmd.Flags()
+	f.StringP("values-file", "v", "", "Path to values file")
+	f.StringP("readme-file", "r", "", "Path to README file")
+	f.StringP("config", "c", ".helm-scribe.yaml", "Path to config file")
+	f.IntP("truncate-length", "t", 0, "Max default value length before truncation")
+	f.BoolP("dry-run", "n", false, "Print output to stdout instead of writing files")
+}
+
 func main() {
-	var (
-		valuesFile     string
-		readmeFile     string
-		configFile     string
-		truncateLength int
-		dryRun         bool
-	)
-
-	flag.StringVar(&valuesFile, "values-file", "", "Path to values file")
-	flag.StringVar(&readmeFile, "readme-file", "", "Path to README file")
-	flag.StringVar(&configFile, "config", ".helm-scribe.yaml", "Path to config file")
-	flag.IntVar(&truncateLength, "truncate-length", 0, "Max default value length before truncation")
-	flag.BoolVar(&dryRun, "dry-run", false, "Print output to stdout instead of writing files")
-	flag.Parse()
-
-	chartDir := "."
-	if flag.NArg() > 0 {
-		chartDir = flag.Arg(0)
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
 	}
+}
+
+func execute(cmd *cobra.Command, args []string) error {
+	chartDir := "."
+	if len(args) > 0 {
+		chartDir = args[0]
+	}
+
+	f := cmd.Flags()
+	configFile, _ := f.GetString("config")
+	valuesFile, _ := f.GetString("values-file")
+	readmeFile, _ := f.GetString("readme-file")
+	truncateLength, _ := f.GetInt("truncate-length")
+	dryRun, _ := f.GetBool("dry-run")
 
 	cfg, err := config.LoadConfig(filepath.Join(chartDir, configFile))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading config: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// CLI flags override config
 	if valuesFile != "" {
 		cfg.ValuesFile = valuesFile
 	}
@@ -53,10 +66,7 @@ func main() {
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
 	readmePath := filepath.Join(chartDir, cfg.ReadmeFile)
 
-	if err := run(cfg, valuesPath, readmePath); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
+	return run(cfg, valuesPath, readmePath)
 }
 
 func run(cfg config.Config, valuesPath, readmePath string) error {
