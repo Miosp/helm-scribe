@@ -80,3 +80,30 @@ func TestParse_NestedObjects(t *testing.T) {
 		t.Errorf("child type: got %q", repo.Type)
 	}
 }
+
+func TestParse_SectionsAndSkip(t *testing.T) {
+	data, err := os.ReadFile("../testdata/sections.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// reconcileInterval is skipped, so 3 nodes
+	if len(nodes) != 3 {
+		t.Fatalf("got %d nodes, want 3", len(nodes))
+	}
+
+	if nodes[0].Section != "Common parameters" {
+		t.Errorf("[0] section: got %q", nodes[0].Section)
+	}
+	if nodes[1].Section != "Common parameters" {
+		t.Errorf("[1] section: got %q", nodes[1].Section)
+	}
+	if nodes[2].Section != "Network parameters" {
+		t.Errorf("[2] section: got %q", nodes[2].Section)
+	}
+}

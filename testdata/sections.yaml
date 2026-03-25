@@ -1,0 +1,12 @@
+# @section Common parameters
+# Number of replicas
+replicaCount: 1
+# Override the full name
+fullnameOverride: ""
+# @section Network parameters
+# Service port
+port: 80
+# @section Internal
+# Internal setting
+# @skip
+reconcileInterval: 30s
