@@ -7,6 +7,27 @@ import (
 	"github.com/miosp/helm-scribe/model"
 )
 
+// assertRowContains checks that a table row exists containing all given substrings.
+func assertRowContains(t *testing.T, table string, substrings ...string) {
+	t.Helper()
+	for _, line := range strings.Split(table, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "|") {
+			continue
+		}
+		allFound := true
+		for _, s := range substrings {
+			if !strings.Contains(line, s) {
+				allFound = false
+				break
+			}
+		}
+		if allFound {
+			return
+		}
+	}
+	t.Errorf("no row containing %v in:\n%s", substrings, table)
+}
+
 func TestGenerate_BasicTable(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Path: "replicaCount", Description: "Number of replicas", Type: "integer", Default: 1, Section: "Common"},
@@ -18,12 +39,8 @@ func TestGenerate_BasicTable(t *testing.T) {
 	if !strings.Contains(result, "## Common") {
 		t.Error("missing section header")
 	}
-	if !strings.Contains(result, "| `replicaCount` | Number of replicas | `1` |") {
-		t.Errorf("missing replicaCount row, got:\n%s", result)
-	}
-	if !strings.Contains(result, `| `+"`"+`fullnameOverride`+"`"+` | Override full name | `+"`"+`""`+"`"+` |`) {
-		t.Errorf("missing fullnameOverride row, got:\n%s", result)
-	}
+	assertRowContains(t, result, "`replicaCount`", "Number of replicas", "`1`")
+	assertRowContains(t, result, "`fullnameOverride`", "Override full name")
 }
 
 func TestGenerate_MultipleSections(t *testing.T) {
@@ -60,12 +77,8 @@ func TestGenerate_NestedObjectFlattening(t *testing.T) {
 
 	result := Generate(nodes, DefaultOptions())
 
-	if !strings.Contains(result, "| `image.repository` |") {
-		t.Errorf("missing flattened child, got:\n%s", result)
-	}
-	if !strings.Contains(result, "| `image.tag` |") {
-		t.Errorf("missing flattened child, got:\n%s", result)
-	}
+	assertRowContains(t, result, "`image.repository`", "Repo")
+	assertRowContains(t, result, "`image.tag`", "Tag")
 }
 
 func TestGenerate_Truncation(t *testing.T) {
@@ -93,9 +106,7 @@ func TestGenerate_NoSection(t *testing.T) {
 	if strings.Contains(result, "##") {
 		t.Errorf("unexpected section header for unsectioned nodes, got:\n%s", result)
 	}
-	if !strings.Contains(result, "| `key` |") {
-		t.Errorf("missing row, got:\n%s", result)
-	}
+	assertRowContains(t, result, "`key`", "Desc")
 }
 
 func TestInsertIntoReadme_BetweenMarkers(t *testing.T) {

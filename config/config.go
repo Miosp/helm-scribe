@@ -20,6 +20,7 @@ type Config struct {
 	SchemaFile     string `yaml:"schemaFile"`
 	TypeColumn     bool   `yaml:"typeColumn"`
 	Strict         bool   `yaml:"strict"`
+	NoPrettyPrint  bool   `yaml:"noPrettyPrint"`
 	DryRun         bool   `yaml:"-"`
 	SchemaOnly     bool   `yaml:"-"`
 	ReadmeOnly     bool   `yaml:"-"`

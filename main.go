@@ -26,6 +26,7 @@ func init() {
 	f.StringP("config", "c", ".helm-scribe.yaml", "Path to config file")
 	f.IntP("truncate-length", "t", 0, "Max default value length before truncation")
 	f.BoolP("dry-run", "n", false, "Print output to stdout instead of writing files")
+	f.Bool("no-pretty", false, "Disable table column alignment")
 }
 
 func main() {
@@ -46,6 +47,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	readmeFile, _ := f.GetString("readme-file")
 	truncateLength, _ := f.GetInt("truncate-length")
 	dryRun, _ := f.GetBool("dry-run")
+	noPretty, _ := f.GetBool("no-pretty")
 
 	cfg, err := config.LoadConfig(filepath.Join(chartDir, configFile))
 	if err != nil {
@@ -62,6 +64,7 @@ func execute(cmd *cobra.Command, args []string) error {
 		cfg.TruncateLength = truncateLength
 	}
 	cfg.DryRun = dryRun
+	cfg.NoPrettyPrint = noPretty
 
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
 	readmePath := filepath.Join(chartDir, cfg.ReadmeFile)
@@ -80,7 +83,7 @@ func run(cfg config.Config, valuesPath, readmePath string) error {
 		return fmt.Errorf("parsing values: %w", err)
 	}
 
-	opts := readme.Options{TruncateLength: cfg.TruncateLength}
+	opts := readme.Options{TruncateLength: cfg.TruncateLength, NoPrettyPrint: cfg.NoPrettyPrint}
 	table := readme.Generate(nodes, opts)
 
 	if cfg.DryRun {

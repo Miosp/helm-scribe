@@ -12,10 +12,15 @@ const defaultTruncateLength = 80
 
 type Options struct {
 	TruncateLength int
+	NoPrettyPrint  bool
 }
 
 func DefaultOptions() Options {
 	return Options{TruncateLength: defaultTruncateLength}
+}
+
+type tableRow struct {
+	key, description, def string
 }
 
 func Generate(nodes []*model.ValueNode, opts Options) string {
@@ -27,16 +32,55 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 		if sec.name != "" {
 			fmt.Fprintf(&b, "## %s\n\n", sec.name)
 		}
-		b.WriteString("| Key | Description | Default |\n")
-		b.WriteString("|-----|-------------|--------|\n")
+
+		var rows []tableRow
 		for _, n := range sec.nodes {
-			def := formatDefault(n.Default, opts.TruncateLength)
-			fmt.Fprintf(&b, "| `%s` | %s | %s |\n", n.Path, n.Description, def)
+			rows = append(rows, tableRow{
+				key:         fmt.Sprintf("`%s`", n.Path),
+				description: n.Description,
+				def:         formatDefault(n.Default, opts.TruncateLength),
+			})
 		}
+
+		writeTable(&b, rows, opts.NoPrettyPrint)
 		b.WriteByte('\n')
 	}
 
 	return b.String()
+}
+
+func writeTable(b *strings.Builder, rows []tableRow, noPretty bool) {
+	headers := tableRow{key: "Key", description: "Description", def: "Default"}
+
+	if noPretty {
+		fmt.Fprintf(b, "| %s | %s | %s |\n", headers.key, headers.description, headers.def)
+		b.WriteString("|-----|-------------|--------|\n")
+		for _, r := range rows {
+			fmt.Fprintf(b, "| %s | %s | %s |\n", r.key, r.description, r.def)
+		}
+		return
+	}
+
+	// Calculate max widths
+	kw, dw, fw := len(headers.key), len(headers.description), len(headers.def)
+	for _, r := range rows {
+		if len(r.key) > kw {
+			kw = len(r.key)
+		}
+		if len(r.description) > dw {
+			dw = len(r.description)
+		}
+		if len(r.def) > fw {
+			fw = len(r.def)
+		}
+	}
+
+	fmtStr := fmt.Sprintf("| %%-%ds | %%-%ds | %%-%ds |\n", kw, dw, fw)
+	fmt.Fprintf(b, fmtStr, headers.key, headers.description, headers.def)
+	fmt.Fprintf(b, "|-%s-|-%s-|-%s-|\n", strings.Repeat("-", kw), strings.Repeat("-", dw), strings.Repeat("-", fw))
+	for _, r := range rows {
+		fmt.Fprintf(b, fmtStr, r.key, r.description, r.def)
+	}
 }
 
 func flatten(nodes []*model.ValueNode) []*model.ValueNode {

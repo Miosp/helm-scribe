@@ -43,15 +43,11 @@ func TestEndToEnd(t *testing.T) {
 		t.Error("missing Image parameters section")
 	}
 
-	// Verify keys present
-	if !strings.Contains(result, "| `replicaCount` |") {
-		t.Error("missing replicaCount")
-	}
-	if !strings.Contains(result, "| `image.repository` |") {
-		t.Error("missing image.repository")
-	}
-	if !strings.Contains(result, "| `image.tag` |") {
-		t.Error("missing image.tag")
+	// Verify keys present (padded in pretty-print mode)
+	for _, key := range []string{"`replicaCount`", "`image.repository`", "`image.tag`"} {
+		if !strings.Contains(result, key) {
+			t.Errorf("missing %s", key)
+		}
 	}
 
 	// Verify skipped key absent
