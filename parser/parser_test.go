@@ -45,3 +45,38 @@ func TestParse_BasicScalars(t *testing.T) {
 		}
 	}
 }
+
+func TestParse_NestedObjects(t *testing.T) {
+	data, err := os.ReadFile("../testdata/nested.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(nodes) != 1 {
+		t.Fatalf("got %d top-level nodes, want 1", len(nodes))
+	}
+
+	img := nodes[0]
+	if img.Path != "image" {
+		t.Errorf("path: got %q", img.Path)
+	}
+	if img.Description != "Container image configuration" {
+		t.Errorf("description: got %q", img.Description)
+	}
+	if len(img.Children) != 2 {
+		t.Fatalf("got %d children, want 2", len(img.Children))
+	}
+
+	repo := img.Children[0]
+	if repo.Path != "image.repository" {
+		t.Errorf("child path: got %q", repo.Path)
+	}
+	if repo.Type != "string" {
+		t.Errorf("child type: got %q", repo.Type)
+	}
+}

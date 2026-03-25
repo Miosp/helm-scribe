@@ -1,0 +1,6 @@
+# Container image configuration
+image:
+  # Image repository
+  repository: nginx
+  # Image tag
+  tag: "latest"
