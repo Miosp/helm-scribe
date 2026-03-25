@@ -1,0 +1,11 @@
+# Number of replicas
+replicaCount: 1
+
+# Override the full name
+fullnameOverride: ""
+
+# Enable debug mode
+debug: false
+
+# Resource CPU limit
+cpuLimit: 0.5
