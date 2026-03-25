@@ -12,11 +12,12 @@ const defaultTruncateLength = 80
 
 type Options struct {
 	TruncateLength int
+	HeadingLevel   int
 	NoPrettyPrint  bool
 }
 
 func DefaultOptions() Options {
-	return Options{TruncateLength: defaultTruncateLength}
+	return Options{TruncateLength: defaultTruncateLength, HeadingLevel: 2}
 }
 
 type tableRow struct {
@@ -30,7 +31,11 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 	var b strings.Builder
 	for _, sec := range sections {
 		if sec.name != "" {
-			fmt.Fprintf(&b, "## %s\n\n", sec.name)
+			level := opts.HeadingLevel
+			if level < 1 || level > 6 {
+				level = 2
+			}
+			fmt.Fprintf(&b, "%s %s\n\n", strings.Repeat("#", level), sec.name)
 		}
 
 		var rows []tableRow

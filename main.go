@@ -27,6 +27,7 @@ func init() {
 	f.IntP("truncate-length", "t", 0, "Max default value length before truncation")
 	f.BoolP("dry-run", "n", false, "Print output to stdout instead of writing files")
 	f.Bool("no-pretty", false, "Disable table column alignment")
+	f.Int("heading-level", 0, "Heading level for section headers (1-6, default: 2)")
 }
 
 func main() {
@@ -48,6 +49,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	truncateLength, _ := f.GetInt("truncate-length")
 	dryRun, _ := f.GetBool("dry-run")
 	noPretty, _ := f.GetBool("no-pretty")
+	headingLevel, _ := f.GetInt("heading-level")
 
 	cfg, err := config.LoadConfig(filepath.Join(chartDir, configFile))
 	if err != nil {
@@ -62,6 +64,9 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 	if truncateLength > 0 {
 		cfg.TruncateLength = truncateLength
+	}
+	if headingLevel > 0 {
+		cfg.HeadingLevel = headingLevel
 	}
 	cfg.DryRun = dryRun
 	cfg.NoPrettyPrint = noPretty
@@ -83,7 +88,7 @@ func run(cfg config.Config, valuesPath, readmePath string) error {
 		return fmt.Errorf("parsing values: %w", err)
 	}
 
-	opts := readme.Options{TruncateLength: cfg.TruncateLength, NoPrettyPrint: cfg.NoPrettyPrint}
+	opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint}
 	table := readme.Generate(nodes, opts)
 
 	if cfg.DryRun {
