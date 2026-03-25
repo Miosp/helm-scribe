@@ -1,0 +1,20 @@
+# @section Common parameters
+# Number of replicas for the deployment
+replicaCount: 1
+
+# @section Common parameters
+# Override the full resource name
+fullnameOverride: ""
+
+# @section Image parameters
+# Container image configuration
+image:
+  # Image repository
+  repository: nginx
+  # Image tag
+  tag: "latest"
+
+# @section Internal
+# Internal setting, not user-facing
+# @skip
+reconcileInterval: 30s
