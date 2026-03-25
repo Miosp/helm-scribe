@@ -145,3 +145,127 @@ func TestInsertIntoReadme_NoMarkers(t *testing.T) {
 		t.Error("expected error for missing markers")
 	}
 }
+
+func TestFormatDefault_Types(t *testing.T) {
+	tests := []struct {
+		name string
+		val  interface{}
+		want string
+	}{
+		{"nil", nil, "`null`"},
+		{"bool_true", true, "`true`"},
+		{"bool_false", false, "`false`"},
+		{"integer", 42, "`42`"},
+		{"string", "hello", "`\"hello\"`"},
+		{"empty_array", []interface{}{}, "`[]`"},
+		{"non_empty_array", []interface{}{"a", "b"}, "See values.yaml"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatDefault(tt.val, 80)
+			if got != tt.want {
+				t.Errorf("formatDefault(%v) = %q, want %q", tt.val, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerate_HeadingLevel(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "key", Description: "Desc", Default: "val", Section: "Sec"},
+	}
+
+	t.Run("custom_level_3", func(t *testing.T) {
+		opts := DefaultOptions()
+		opts.HeadingLevel = 3
+		result := Generate(nodes, opts)
+		if !strings.Contains(result, "### Sec") {
+			t.Errorf("expected ### heading, got:\n%s", result)
+		}
+	})
+
+	t.Run("out_of_range_falls_back_to_2", func(t *testing.T) {
+		opts := DefaultOptions()
+		opts.HeadingLevel = 0
+		result := Generate(nodes, opts)
+		if !strings.Contains(result, "## Sec") {
+			t.Errorf("expected ## fallback heading, got:\n%s", result)
+		}
+	})
+
+	t.Run("above_6_falls_back_to_2", func(t *testing.T) {
+		opts := DefaultOptions()
+		opts.HeadingLevel = 7
+		result := Generate(nodes, opts)
+		if !strings.Contains(result, "## Sec") {
+			t.Errorf("expected ## fallback heading, got:\n%s", result)
+		}
+	})
+}
+
+func TestGenerate_NoPrettyPrint(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "a", Description: "Short", Default: 1, Section: "S"},
+		{Path: "longKeyName", Description: "A longer description here", Default: "value", Section: "S"},
+	}
+
+	t.Run("pretty_print_pads_columns", func(t *testing.T) {
+		opts := DefaultOptions()
+		result := Generate(nodes, opts)
+		lines := strings.Split(result, "\n")
+		// In pretty-print mode, all data rows should have the same length
+		var dataLines []string
+		for _, line := range lines {
+			if strings.HasPrefix(line, "|") {
+				dataLines = append(dataLines, line)
+			}
+		}
+		if len(dataLines) < 3 {
+			t.Fatalf("expected at least 3 table lines, got %d", len(dataLines))
+		}
+		firstLen := len(dataLines[0])
+		for i, dl := range dataLines[1:] {
+			if len(dl) != firstLen {
+				t.Errorf("line %d length %d != header length %d (not aligned)", i+1, len(dl), firstLen)
+			}
+		}
+	})
+
+	t.Run("no_pretty_print_no_padding", func(t *testing.T) {
+		opts := DefaultOptions()
+		opts.NoPrettyPrint = true
+		result := Generate(nodes, opts)
+		// Should contain unpadded rows
+		assertRowContains(t, result, "`a`", "Short", "`1`")
+		// Rows should NOT all be the same length
+		lines := strings.Split(result, "\n")
+		var dataLines []string
+		for _, line := range lines {
+			if strings.HasPrefix(line, "|") && !strings.HasPrefix(line, "|--") {
+				dataLines = append(dataLines, line)
+			}
+		}
+		if len(dataLines) >= 2 {
+			// The short row and long row should differ in length
+			if len(dataLines[1]) == len(dataLines[2]) {
+				t.Error("expected different row lengths in no-pretty mode")
+			}
+		}
+	})
+}
+
+func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
+	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
+	_, err := InsertIntoReadme(existing, "new")
+	if err == nil {
+		t.Error("expected error when only start marker present")
+	}
+}
+
+func TestInsertIntoReadme_OnlyEndMarker(t *testing.T) {
+	existing := "# Chart\n<!-- helm-scribe:end -->\n"
+	_, err := InsertIntoReadme(existing, "new")
+	if err == nil {
+		t.Error("expected error when only end marker present")
+	}
+}

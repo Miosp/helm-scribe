@@ -137,3 +137,69 @@ func TestParse_MultipleSectionsBetweenKeys(t *testing.T) {
 		t.Errorf("section: got %q, want %q (last one should win)", nodes[0].Section, "Second")
 	}
 }
+
+func TestParse_InvalidYAML(t *testing.T) {
+	_, err := Parse([]byte(":\n  :\n    - [invalid"))
+	if err == nil {
+		t.Error("expected error for invalid YAML")
+	}
+}
+
+func TestParse_NonMappingRoot(t *testing.T) {
+	_, err := Parse([]byte("just a string"))
+	if err == nil {
+		t.Error("expected error for non-mapping root")
+	}
+}
+
+func TestParse_ArrayValues(t *testing.T) {
+	input := []byte("# Allowed hosts\nhosts:\n  - example.com\n  - test.com\n# Empty list\ntags: []\n")
+	nodes, err := Parse(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 2 {
+		t.Fatalf("got %d nodes, want 2", len(nodes))
+	}
+
+	if nodes[0].Type != "array" {
+		t.Errorf("hosts type: got %q, want %q", nodes[0].Type, "array")
+	}
+	items, ok := nodes[0].Default.([]interface{})
+	if !ok {
+		t.Fatalf("hosts default: expected []interface{}, got %T", nodes[0].Default)
+	}
+	if len(items) != 2 {
+		t.Errorf("hosts default: got %d items, want 2", len(items))
+	}
+
+	if nodes[1].Type != "array" {
+		t.Errorf("tags type: got %q, want %q", nodes[1].Type, "array")
+	}
+	emptyItems, ok := nodes[1].Default.([]interface{})
+	if !ok {
+		t.Fatalf("tags default: expected []interface{}, got %T", nodes[1].Default)
+	}
+	if len(emptyItems) != 0 {
+		t.Errorf("tags default: got %d items, want 0", len(emptyItems))
+	}
+}
+
+func TestParse_NullValues(t *testing.T) {
+	input := []byte("# Explicit null\na: null\n# Tilde null\nb: ~\n# Empty value\nc:\n")
+	nodes, err := Parse(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 3 {
+		t.Fatalf("got %d nodes, want 3", len(nodes))
+	}
+	for i, n := range nodes {
+		if n.Type != "null" {
+			t.Errorf("[%d] type: got %q, want %q", i, n.Type, "null")
+		}
+		if n.Default != nil {
+			t.Errorf("[%d] default: got %v, want nil", i, n.Default)
+		}
+	}
+}

@@ -48,3 +48,14 @@ func TestLoadConfig_MissingFileUsesDefaults(t *testing.T) {
 		t.Errorf("truncateLength: got %d", cfg.TruncateLength)
 	}
 }
+
+func TestLoadConfig_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, ".helm-scribe.yaml")
+	os.WriteFile(cfgPath, []byte(":\n  :\n    - [invalid"), 0644)
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Error("expected error for invalid YAML config")
+	}
+}
