@@ -74,7 +74,7 @@ func groupBySection(nodes []*model.ValueNode) []section {
 
 func formatDefault(val interface{}, truncateLen int) string {
 	if val == nil {
-		return "`nil`"
+		return "`null`"
 	}
 	s := fmt.Sprintf("%v", val)
 

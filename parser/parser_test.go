@@ -20,12 +20,11 @@ func TestParse_BasicScalars(t *testing.T) {
 		path        string
 		description string
 		typ         string
-		defVal      interface{}
 	}{
-		{"replicaCount", "Number of replicas", "integer", 1},
-		{"fullnameOverride", "Override the full name", "string", ""},
-		{"debug", "Enable debug mode", "boolean", false},
-		{"cpuLimit", "Resource CPU limit", "number", 0.5},
+		{"replicaCount", "Number of replicas", "integer"},
+		{"fullnameOverride", "Override the full name", "string"},
+		{"debug", "Enable debug mode", "boolean"},
+		{"cpuLimit", "Resource CPU limit", "number"},
 	}
 
 	if len(nodes) != len(expected) {

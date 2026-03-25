@@ -62,11 +62,7 @@ func walkMapping(node *yaml.Node, prefix string) []*model.ValueNode {
 			n.Type = "object"
 			n.Default = nil
 			n.Children = walkMapping(valNode, path)
-			for _, child := range n.Children {
-				if child.Section == "" {
-					child.Section = currentSection
-				}
-			}
+			propagateSection(n.Children, currentSection)
 		case yaml.SequenceNode:
 			n.Type = "array"
 			n.Default = decodeSequence(valNode)
@@ -125,7 +121,26 @@ func decodeSequence(node *yaml.Node) interface{} {
 	}
 	var items []interface{}
 	for _, item := range node.Content {
-		items = append(items, decodeScalar(item))
+		switch item.Kind {
+		case yaml.MappingNode:
+			// Non-scalar items — store raw string representation
+			var v interface{}
+			_ = item.Decode(&v)
+			items = append(items, v)
+		default:
+			items = append(items, decodeScalar(item))
+		}
 	}
 	return items
+}
+
+func propagateSection(nodes []*model.ValueNode, section string) {
+	for _, n := range nodes {
+		if n.Section == "" {
+			n.Section = section
+		}
+		if len(n.Children) > 0 {
+			propagateSection(n.Children, n.Section)
+		}
+	}
 }
