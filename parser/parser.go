@@ -1,15 +1,55 @@
 package parser
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/miosp/helm-scribe/model"
 	"gopkg.in/yaml.v3"
 )
 
+type sectionMarker struct {
+	line int
+	name string
+}
+
+func extractSectionMarkers(data []byte) []sectionMarker {
+	var markers []sectionMarker
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "#")
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "@section ") {
+			name := strings.TrimSpace(strings.TrimPrefix(line, "@section "))
+			markers = append(markers, sectionMarker{line: lineNum, name: name})
+		}
+	}
+	return markers
+}
+
+func findSection(markers []sectionMarker, afterLine, atOrBeforeLine int) string {
+	result := ""
+	for _, m := range markers {
+		if m.line > afterLine && m.line <= atOrBeforeLine {
+			result = m.name
+		}
+	}
+	return result
+}
+
 // Parse parses raw YAML bytes into a flat list of ValueNodes.
 func Parse(data []byte) ([]*model.ValueNode, error) {
+	markers := extractSectionMarkers(data)
+
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("parsing yaml: %w", err)
@@ -24,22 +64,24 @@ func Parse(data []byte) ([]*model.ValueNode, error) {
 		return nil, fmt.Errorf("expected top-level mapping")
 	}
 
-	return walkMapping(root, ""), nil
+	return walkMapping(root, "", markers), nil
 }
 
-func walkMapping(node *yaml.Node, prefix string) []*model.ValueNode {
+func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker) []*model.ValueNode {
 	var nodes []*model.ValueNode
 	currentSection := ""
+	prevLine := 0
 
 	for i := 0; i < len(node.Content)-1; i += 2 {
 		keyNode := node.Content[i]
 		valNode := node.Content[i+1]
 
-		ann := ParseAnnotations(keyNode.HeadComment)
-
-		if ann.Section != "" {
-			currentSection = ann.Section
+		if sec := findSection(markers, prevLine, keyNode.Line); sec != "" {
+			currentSection = sec
 		}
+		prevLine = keyNode.Line
+
+		ann := ParseAnnotations(keyNode.HeadComment)
 
 		if ann.Skip {
 			continue
@@ -61,7 +103,7 @@ func walkMapping(node *yaml.Node, prefix string) []*model.ValueNode {
 		case yaml.MappingNode:
 			n.Type = "object"
 			n.Default = nil
-			n.Children = walkMapping(valNode, path)
+			n.Children = walkMapping(valNode, path, markers)
 			propagateSection(n.Children, currentSection)
 		case yaml.SequenceNode:
 			n.Type = "array"

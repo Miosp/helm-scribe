@@ -106,3 +106,34 @@ func TestParse_SectionsAndSkip(t *testing.T) {
 		t.Errorf("[2] section: got %q", nodes[2].Section)
 	}
 }
+
+func TestParse_SectionInlineNoBlankLine(t *testing.T) {
+	yaml := []byte("# @section Inline\n# Description\nkey: val\n")
+	nodes, err := Parse(yaml)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("got %d nodes, want 1", len(nodes))
+	}
+	if nodes[0].Section != "Inline" {
+		t.Errorf("section: got %q, want %q", nodes[0].Section, "Inline")
+	}
+	if nodes[0].Description != "Description" {
+		t.Errorf("description: got %q", nodes[0].Description)
+	}
+}
+
+func TestParse_MultipleSectionsBetweenKeys(t *testing.T) {
+	yaml := []byte("# @section First\n# @section Second\n\nkey: val\n")
+	nodes, err := Parse(yaml)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("got %d nodes, want 1", len(nodes))
+	}
+	if nodes[0].Section != "Second" {
+		t.Errorf("section: got %q, want %q (last one should win)", nodes[0].Section, "Second")
+	}
+}
