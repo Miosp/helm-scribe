@@ -1,10 +1,13 @@
 # helm-scribe
 
-A CLI tool that generates a parameters table for Helm chart READMEs from annotated `values.yaml` files.
+A CLI tool that generates a parameters table and JSON Schema from Helm chart `values.yaml` files.
 
 ## How it works
 
-helm-scribe parses your `values.yaml`, extracts parameter metadata from YAML comments, and inserts a formatted markdown table into your `README.md` between marker comments.
+helm-scribe parses your `values.yaml`, extracts parameter metadata from YAML comments, and produces:
+
+1. A formatted markdown table inserted into your `README.md` between marker comments
+2. A `values.schema.json` file for Helm value validation (JSON Schema draft-07)
 
 Place these markers in your README where the table should appear:
 
@@ -22,7 +25,7 @@ go install github.com/miosp/helm-scribe@latest
 ## Usage
 
 ```sh
-# Run in a Helm chart directory
+# Run in a Helm chart directory (generates both README table and schema)
 helm-scribe
 
 # Specify a chart directory
@@ -30,23 +33,32 @@ helm-scribe ./my-chart
 
 # Preview output without modifying files
 helm-scribe --dry-run
+
+# Generate only the schema
+helm-scribe --schema-only
+
+# Generate only the README table
+helm-scribe --readme-only
 ```
 
 ### Flags
 
-| Flag                  | Short | Description                                    | Default             |
-|-----------------------|-------|------------------------------------------------|---------------------|
-| `--values-file`       | `-v`  | Path to values file                            | `values.yaml`       |
-| `--readme-file`       | `-r`  | Path to README file                            | `README.md`         |
-| `--config`            | `-c`  | Path to config file                            | `.helm-scribe.yaml` |
-| `--truncate-length`   | `-t`  | Max default value length before truncation     | `80`                |
-| `--dry-run`           | `-n`  | Print output to stdout instead of writing file | `false`             |
-| `--no-pretty`         |       | Disable table column alignment                 | `false`             |
-| `--heading-level`     |       | Heading level for section headers (1-6)        | `2`                 |
+| Flag                | Short | Description                                    | Default                |
+|---------------------|-------|------------------------------------------------|------------------------|
+| `--values-file`     | `-v`  | Path to values file                            | `values.yaml`          |
+| `--readme-file`     | `-r`  | Path to README file                            | `README.md`            |
+| `--schema-file`     | `-s`  | Path to schema output file                     | Next to values file    |
+| `--config`          | `-c`  | Path to config file                            | `.helm-scribe.yaml`    |
+| `--truncate-length` | `-t`  | Max default value length before truncation     | `80`                   |
+| `--dry-run`         | `-n`  | Print output to stdout instead of writing file | `false`                |
+| `--no-pretty`       |       | Disable table column alignment                 | `false`                |
+| `--heading-level`   |       | Heading level for section headers (1-6)        | `2`                    |
+| `--schema-only`     |       | Only generate schema, skip README              | `false`                |
+| `--readme-only`     |       | Only generate README, skip schema              | `false`                |
 
 ## Annotating values.yaml
 
-Add comments above your values to provide descriptions:
+Add comments above your values to provide descriptions and type information:
 
 ```yaml
 # @section Common parameters
@@ -60,8 +72,26 @@ replicaCount: 1
 image:
   # Image repository
   repository: nginx
-  # Image tag
-  tag: "latest"
+  # Image pull policy
+  # @type string
+  pullPolicy: IfNotPresent
+
+# @section Network parameters
+
+# Optional service description
+# @type string?
+serviceDescription:
+
+# Allowed tags
+# @type string[]
+tags: []
+
+# List of ingress hosts
+# @item host: string
+# @item paths: object[]
+# @item paths[].path: string
+# @item paths[].pathType: string
+hosts: []
 
 # @section Internal
 
@@ -72,38 +102,100 @@ reconcileInterval: 30s
 
 ### Supported annotations
 
-- **Description**: Any comment line above a value becomes its description.
+- **Description**: Any comment line above a value becomes its description. Multi-line comments are joined with spaces. An empty comment line (`#`) creates a line break.
 - **`@section <name>`**: Groups subsequent parameters under a named section heading.
-- **`@skip`**: Excludes the parameter from the generated table.
+- **`@skip`**: Excludes the parameter from generated output.
+- **`@type <type>`**: Overrides the inferred type. Useful when the YAML value doesn't reflect the intended type (e.g., a null value that should be a string).
+- **`@item <path>: <type>`**: Defines the shape of items in an object array. Implies `object[]` type if no `@type` is set.
+
+### Type system
+
+Scalar types: `string`, `integer`, `number`, `boolean`, `object`
+
+Modifiers:
+
+| Syntax      | Meaning              | Schema output                                      |
+|-------------|----------------------|----------------------------------------------------|
+| `string`    | Plain type           | `{"type": "string"}`                               |
+| `string?`   | Nullable             | `{"type": ["string", "null"]}`                     |
+| `string[]`  | Array of type        | `{"type": "array", "items": {"type": "string"}}`              |
+| `string[]?` | Nullable array       | `{"type": ["array", "null"], "items": {"type": "string"}}`    |
+| `string?[]` | Array of nullable    | `{"type": "array", "items": {"type": ["string", "null"]}}`    |
+| `string?[]?`| Both nullable        | `{"type": ["array", "null"], "items": {"type": ["string", "null"]}}` |
+| `object[]`  | Array of objects     | Use with `@item` to define item properties                    |
+| `object?`   | Nullable object      | `{"type": ["object", "null"], "properties": ...}`             |
+
+The `?` modifier works on all types, including `object`. A nullable object with children retains its `properties` constraint but also accepts `null`. Object properties can independently be nullable:
+
+```yaml
+# @type object?
+service:
+  # @type string?
+  description:
+  port: 80
+```
+
+This produces a schema where `service` itself can be null, and `service.description` can be either a string or null, while `service.port` must be an integer.
+
+## Schema generation
+
+The generated `values.schema.json` is placed next to the values file by default. Use `--schema-file` to override the output path.
+
+The schema is a self-contained JSON Schema draft-07 document with no `$ref` or `$defs`. This ensures compatibility with Helm's built-in schema validator and Artifact Hub.
+
+A property is marked as required when any of the following hold:
+
+- It has an explicit non-null default value (e.g., `replicaCount: 1`, `debug: false`, `name: ""`)
+- It is an object with children, and at least one descendant is required (recursively)
+
+A property is **not** required when:
+
+- Its type is nullable (`?` suffix)
+- Its default value is null and it has no children
+- It is an object whose descendants are all non-required (e.g., all null without `@type`)
+
+Note that zero-values (`false`, `0`, `""`) count as explicit defaults, so fields with these defaults are required. This matches the expectation that a Helm chart defines these values intentionally.
+
+Values that are `null` without an explicit `@type` annotation produce an unconstrained schema (no `type` field, accepts any value) and a warning on stderr. Use `@type` to specify the intended type for null-valued fields.
+
+The generated schema does not set `additionalProperties: false`, so extra properties not defined in `values.yaml` are accepted. This is intentional: Helm passes values through to subcharts, and strict schemas would reject subchart values.
+
+## Limitations
+
+- `@item` paths are split on `.` separators. YAML keys containing literal dots are not supported in `@item` path expressions.
+- Arrays without a `@type` or `@item` annotation produce no `items` constraint in the schema (a warning is printed).
 
 ## Configuration file
 
-You can place a `.helm-scribe.yaml` in your chart directory to set defaults:
+You can place a `.helm-scribe.yaml` in your chart directory:
 
 ```yaml
 truncateLength: 80
 headingLevel: 2
 valuesFile: values.yaml
 readmeFile: README.md
+schemaFile: values.schema.json
 ```
 
-## Output
+CLI flags override config file values.
 
-Given the annotated `values.yaml` above, helm-scribe generates:
+## Output example
+
+Given the annotated `values.yaml` above, helm-scribe generates a README table:
 
 ```markdown
 ## Common parameters
 
-| Key              | Description                           | Default  |
-|------------------|---------------------------------------|----------|
-| `replicaCount`   | Number of replicas for the deployment | `1`      |
+| Key              | Description                           | Default |
+|------------------|---------------------------------------|---------|
+| `replicaCount`   | Number of replicas for the deployment | `1`     |
 
 ## Image parameters
 
-| Key                | Description      | Default    |
-|--------------------|------------------|------------|
-| `image.repository` | Image repository | `"nginx"`  |
-| `image.tag`        | Image tag        | `"latest"` |
+| Key                | Description        | Default         |
+|--------------------|--------------------|-----------------|
+| `image.repository` | Image repository   | `"nginx"`       |
+| `image.pullPolicy` | Image pull policy  | `"IfNotPresent"`|
 ```
 
-Parameters marked with `@skip` are excluded, and the `fullnameOverride` (with no description in this example) still appears with an empty description cell.
+And a `values.schema.json` with type definitions, nullable types, array item schemas, and required field constraints.

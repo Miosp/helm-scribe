@@ -15,6 +15,38 @@ image:
   # Image tag
   tag: "latest"
 
+# @section Network parameters
+
+# Service type
+# @type string
+service_type: ClusterIP
+
+# Service port
+port: 80
+
+# Enable debug mode
+debug: false
+
+# CPU resource limit
+cpuLimit: 0.5
+
+# Optional description
+# @type string?
+optionalDescription:
+
+# Allowed tags
+# @type string[]
+tags: []
+
+# List of ingress hosts
+# @item host: string
+# @item paths: object[]
+# @item paths[].path: string
+hosts: []
+
+# Untyped null value
+unknownField:
+
 # @section Internal
 
 # Internal setting, not user-facing

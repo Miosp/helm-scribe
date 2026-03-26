@@ -2,6 +2,7 @@ package parser
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -11,7 +12,7 @@ func TestParse_BasicScalars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodes, err := Parse(data)
+	nodes, _, err := Parse(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func TestParse_NestedObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodes, err := Parse(data)
+	nodes, _, err := Parse(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +87,7 @@ func TestParse_SectionsAndSkip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodes, err := Parse(data)
+	nodes, _, err := Parse(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestParse_SectionsAndSkip(t *testing.T) {
 
 func TestParse_SectionInlineNoBlankLine(t *testing.T) {
 	yaml := []byte("# @section Inline\n# Description\nkey: val\n")
-	nodes, err := Parse(yaml)
+	nodes, _, err := Parse(yaml)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +127,7 @@ func TestParse_SectionInlineNoBlankLine(t *testing.T) {
 
 func TestParse_MultipleSectionsBetweenKeys(t *testing.T) {
 	yaml := []byte("# @section First\n# @section Second\n\nkey: val\n")
-	nodes, err := Parse(yaml)
+	nodes, _, err := Parse(yaml)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,14 +140,14 @@ func TestParse_MultipleSectionsBetweenKeys(t *testing.T) {
 }
 
 func TestParse_InvalidYAML(t *testing.T) {
-	_, err := Parse([]byte(":\n  :\n    - [invalid"))
+	_, _, err := Parse([]byte(":\n  :\n    - [invalid"))
 	if err == nil {
 		t.Error("expected error for invalid YAML")
 	}
 }
 
 func TestParse_NonMappingRoot(t *testing.T) {
-	_, err := Parse([]byte("just a string"))
+	_, _, err := Parse([]byte("just a string"))
 	if err == nil {
 		t.Error("expected error for non-mapping root")
 	}
@@ -154,7 +155,7 @@ func TestParse_NonMappingRoot(t *testing.T) {
 
 func TestParse_ArrayValues(t *testing.T) {
 	input := []byte("# Allowed hosts\nhosts:\n  - example.com\n  - test.com\n# Empty list\ntags: []\n")
-	nodes, err := Parse(input)
+	nodes, _, err := Parse(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +188,7 @@ func TestParse_ArrayValues(t *testing.T) {
 
 func TestParse_NullValues(t *testing.T) {
 	input := []byte("# Explicit null\na: null\n# Tilde null\nb: ~\n# Empty value\nc:\n")
-	nodes, err := Parse(input)
+	nodes, _, err := Parse(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,5 +202,60 @@ func TestParse_NullValues(t *testing.T) {
 		if n.Default != nil {
 			t.Errorf("[%d] default: got %v, want nil", i, n.Default)
 		}
+	}
+}
+
+func TestParse_TypeOverride(t *testing.T) {
+	data, err := os.ReadFile("../testdata/types.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes, warnings, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		path     string
+		typ      string
+		nullable bool
+		items    int
+	}{
+		{"nullable_name", "string", false, 0},
+		{"optional_label", "string", true, 0},
+		{"tags", "string[]", false, 0},
+		{"hosts", "object[]", false, 4},
+		{"unknown", "null", false, 0},
+	}
+
+	if len(nodes) != len(tests) {
+		t.Fatalf("got %d nodes, want %d", len(nodes), len(tests))
+	}
+
+	for i, tt := range tests {
+		n := nodes[i]
+		if n.Path != tt.path {
+			t.Errorf("[%d] path: got %q, want %q", i, n.Path, tt.path)
+		}
+		if n.Type != tt.typ {
+			t.Errorf("[%d] type: got %q, want %q", i, n.Type, tt.typ)
+		}
+		if n.Nullable != tt.nullable {
+			t.Errorf("[%d] nullable: got %v, want %v", i, n.Nullable, tt.nullable)
+		}
+		if len(n.Items) != tt.items {
+			t.Errorf("[%d] items: got %d, want %d", i, len(n.Items), tt.items)
+		}
+	}
+
+	hasNullWarning := false
+	for _, w := range warnings {
+		if strings.Contains(w, "unknown") && strings.Contains(w, "null") {
+			hasNullWarning = true
+		}
+	}
+	if !hasNullWarning {
+		t.Errorf("expected null warning for 'unknown', got warnings: %v", warnings)
 	}
 }

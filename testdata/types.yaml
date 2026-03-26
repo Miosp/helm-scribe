@@ -1,0 +1,21 @@
+# Override null to string
+# @type string
+nullable_name:
+
+# Nullable string
+# @type string?
+optional_label: "default"
+
+# Array of strings
+# @type string[]
+tags: []
+
+# Object array with items
+# @item host: string
+# @item paths: object[]
+# @item paths[].path: string
+# @item paths[].pathType: string
+hosts: []
+
+# Null without type (should warn)
+unknown:

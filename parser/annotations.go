@@ -1,12 +1,20 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/miosp/helm-scribe/model"
+)
 
 // Annotations holds the parsed result of a comment block.
 type Annotations struct {
-	Description string
-	Section     string
-	Skip        bool
+	Description  string
+	Section      string
+	Skip         bool
+	Type         string
+	Nullable     bool
+	ItemNullable bool
+	Items        []*model.ItemDef
 }
 
 // ParseAnnotations extracts description text and tags from a raw HeadComment.
@@ -30,6 +38,16 @@ func ParseAnnotations(raw string) Annotations {
 			ann.Skip = true
 			continue
 		}
+		if strings.HasPrefix(line, "@type ") {
+			ann.Type, ann.Nullable, ann.ItemNullable = parseTypeExpr(strings.TrimPrefix(line, "@type "))
+			continue
+		}
+		if strings.HasPrefix(line, "@item ") {
+			if item, ok := parseItemDef(strings.TrimPrefix(line, "@item ")); ok {
+				ann.Items = append(ann.Items, item)
+			}
+			continue
+		}
 
 		if line == "" {
 			descParts = append(descParts, "\n")
@@ -40,6 +58,44 @@ func ParseAnnotations(raw string) Annotations {
 
 	ann.Description = buildDescription(descParts)
 	return ann
+}
+
+func parseTypeExpr(expr string) (typ string, nullable bool, itemNullable bool) {
+	expr = strings.TrimSpace(expr)
+
+	// Outer nullable: trailing ? (after any [])
+	if strings.HasSuffix(expr, "?") {
+		nullable = true
+		expr = strings.TrimSuffix(expr, "?")
+	}
+
+	// Array: trailing []
+	isArray := strings.HasSuffix(expr, "[]")
+	if isArray {
+		expr = strings.TrimSuffix(expr, "[]")
+	}
+
+	// Item nullable: ? before [] (e.g. string?[] -> string, itemNullable=true)
+	if isArray && strings.HasSuffix(expr, "?") {
+		itemNullable = true
+		expr = strings.TrimSuffix(expr, "?")
+	}
+
+	if isArray {
+		return expr + "[]", nullable, itemNullable
+	}
+	return expr, nullable, itemNullable
+}
+
+func parseItemDef(raw string) (*model.ItemDef, bool) {
+	parts := strings.SplitN(raw, ":", 2)
+	if len(parts) != 2 {
+		return nil, false
+	}
+	return &model.ItemDef{
+		Path: strings.TrimSpace(parts[0]),
+		Type: strings.TrimSpace(parts[1]),
+	}, true
 }
 
 func buildDescription(parts []string) string {

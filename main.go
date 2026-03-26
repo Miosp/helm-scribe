@@ -8,13 +8,14 @@ import (
 	"github.com/miosp/helm-scribe/config"
 	"github.com/miosp/helm-scribe/parser"
 	"github.com/miosp/helm-scribe/readme"
+	"github.com/miosp/helm-scribe/schema"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "helm-scribe [chart-directory]",
-	Short: "Generate README parameters table from Helm values.yaml",
-	Long:  "helm-scribe reads a Helm chart's values.yaml and generates\na parameters table in README.md between helm-scribe markers.",
+	Short: "Generate README parameters table and values.schema.json from Helm values.yaml",
+	Long:  "helm-scribe reads a Helm chart's values.yaml and generates\na parameters table in README.md and a values.schema.json for validation.",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  execute,
 }
@@ -28,6 +29,9 @@ func init() {
 	f.BoolP("dry-run", "n", false, "Print output to stdout instead of writing files")
 	f.Bool("no-pretty", false, "Disable table column alignment")
 	f.Int("heading-level", 0, "Heading level for section headers (1-6, default: 2)")
+	f.StringP("schema-file", "s", "", "Path to schema output file")
+	f.Bool("schema-only", false, "Only generate schema, skip README")
+	f.Bool("readme-only", false, "Only generate README, skip schema")
 }
 
 func main() {
@@ -68,48 +72,81 @@ func execute(cmd *cobra.Command, args []string) error {
 	if headingLevel > 0 {
 		cfg.HeadingLevel = headingLevel
 	}
+	schemaFile, _ := f.GetString("schema-file")
+	schemaOnly, _ := f.GetBool("schema-only")
+	readmeOnly, _ := f.GetBool("readme-only")
+
+	if schemaFile != "" {
+		cfg.SchemaFile = schemaFile
+	}
 	cfg.DryRun = dryRun
 	cfg.NoPrettyPrint = noPretty
+	if schemaOnly && readmeOnly {
+		return fmt.Errorf("--schema-only and --readme-only are mutually exclusive")
+	}
+	cfg.SchemaOnly = schemaOnly
+	cfg.ReadmeOnly = readmeOnly
 
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
 	readmePath := filepath.Join(chartDir, cfg.ReadmeFile)
+	schemaPath := filepath.Join(filepath.Dir(valuesPath), cfg.SchemaFile)
 
-	return run(cfg, valuesPath, readmePath)
+	return run(cfg, valuesPath, readmePath, schemaPath)
 }
 
-func run(cfg config.Config, valuesPath, readmePath string) error {
+func run(cfg config.Config, valuesPath, readmePath, schemaPath string) error {
 	data, err := os.ReadFile(valuesPath)
 	if err != nil {
 		return fmt.Errorf("reading values file: %w", err)
 	}
 
-	nodes, err := parser.Parse(data)
+	nodes, warnings, err := parser.Parse(data)
 	if err != nil {
 		return fmt.Errorf("parsing values: %w", err)
 	}
 
-	opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint}
-	table := readme.Generate(nodes, opts)
-
-	if cfg.DryRun {
-		fmt.Print(table)
-		return nil
+	for _, w := range warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
-	readmeData, err := os.ReadFile(readmePath)
-	if err != nil {
-		return fmt.Errorf("reading README: %w", err)
+	if !cfg.ReadmeOnly {
+		schemaBytes, err := schema.Generate(nodes)
+		if err != nil {
+			return fmt.Errorf("generating schema: %w", err)
+		}
+		if cfg.DryRun {
+			fmt.Println(string(schemaBytes))
+		} else {
+			if err := os.WriteFile(schemaPath, schemaBytes, 0644); err != nil {
+				return fmt.Errorf("writing schema: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Updated %s\n", schemaPath)
+		}
 	}
 
-	result, err := readme.InsertIntoReadme(string(readmeData), table)
-	if err != nil {
-		return err
+	if !cfg.SchemaOnly {
+		opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint}
+		table := readme.Generate(nodes, opts)
+
+		if cfg.DryRun {
+			fmt.Print(table)
+		} else {
+			readmeData, err := os.ReadFile(readmePath)
+			if err != nil {
+				return fmt.Errorf("reading README: %w", err)
+			}
+
+			result, err := readme.InsertIntoReadme(string(readmeData), table)
+			if err != nil {
+				return err
+			}
+
+			if err := os.WriteFile(readmePath, []byte(result), 0644); err != nil {
+				return fmt.Errorf("writing README: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Updated %s\n", readmePath)
+		}
 	}
 
-	if err := os.WriteFile(readmePath, []byte(result), 0644); err != nil {
-		return fmt.Errorf("writing README: %w", err)
-	}
-
-	fmt.Fprintf(os.Stderr, "Updated %s\n", readmePath)
 	return nil
 }

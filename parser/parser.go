@@ -47,27 +47,29 @@ func findSection(markers []sectionMarker, afterLine, atOrBeforeLine int) string 
 }
 
 // Parse parses raw YAML bytes into a flat list of ValueNodes.
-func Parse(data []byte) ([]*model.ValueNode, error) {
+func Parse(data []byte) ([]*model.ValueNode, []string, error) {
 	markers := extractSectionMarkers(data)
 
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parsing yaml: %w", err)
+		return nil, nil, fmt.Errorf("parsing yaml: %w", err)
 	}
 
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return nil, fmt.Errorf("expected document node")
+		return nil, nil, fmt.Errorf("expected document node")
 	}
 
 	root := doc.Content[0]
 	if root.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("expected top-level mapping")
+		return nil, nil, fmt.Errorf("expected top-level mapping")
 	}
 
-	return walkMapping(root, "", markers), nil
+	var warnings []string
+	nodes := walkMapping(root, "", markers, &warnings)
+	return nodes, warnings, nil
 }
 
-func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker) []*model.ValueNode {
+func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnings *[]string) []*model.ValueNode {
 	var nodes []*model.ValueNode
 	currentSection := ""
 	prevLine := 0
@@ -103,7 +105,7 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker) []*mod
 		case yaml.MappingNode:
 			n.Type = "object"
 			n.Default = nil
-			n.Children = walkMapping(valNode, path, markers)
+			n.Children = walkMapping(valNode, path, markers, warnings)
 			propagateSection(n.Children, currentSection)
 		case yaml.SequenceNode:
 			n.Type = "array"
@@ -114,6 +116,27 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker) []*mod
 		default:
 			n.Type = "string"
 			n.Default = valNode.Value
+		}
+
+		if ann.Type != "" {
+			if w := validateType(ann.Type, n.Path); w != "" {
+				*warnings = append(*warnings, w)
+			}
+			n.Type = ann.Type
+			n.Nullable = ann.Nullable
+			n.ItemNullable = ann.ItemNullable
+		}
+		if len(ann.Items) > 0 {
+			n.Items = ann.Items
+			if ann.Type == "" {
+				n.Type = "object[]"
+			}
+		}
+		if n.Type == "null" && ann.Type == "" {
+			*warnings = append(*warnings, fmt.Sprintf("key %q is null with no @type; schema will accept any value", n.Path))
+		}
+		if n.Type == "array" && ann.Type == "" && len(ann.Items) == 0 {
+			*warnings = append(*warnings, fmt.Sprintf("key %q is an array with no @type; schema will not validate items", n.Path))
 		}
 
 		nodes = append(nodes, n)
@@ -174,6 +197,18 @@ func decodeSequence(node *yaml.Node) interface{} {
 		}
 	}
 	return items
+}
+
+var validBaseTypes = map[string]bool{
+	"string": true, "integer": true, "number": true, "boolean": true, "object": true,
+}
+
+func validateType(typ, path string) string {
+	base := strings.TrimSuffix(typ, "[]")
+	if !validBaseTypes[base] {
+		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, or object", path, typ)
+	}
+	return ""
 }
 
 func propagateSection(nodes []*model.ValueNode, section string) {
