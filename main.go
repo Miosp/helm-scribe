@@ -89,7 +89,7 @@ func execute(cmd *cobra.Command, args []string) error {
 
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
 	readmePath := filepath.Join(chartDir, cfg.ReadmeFile)
-	schemaPath := filepath.Join(chartDir, cfg.SchemaFile)
+	schemaPath := filepath.Join(filepath.Dir(valuesPath), cfg.SchemaFile)
 
 	return run(cfg, valuesPath, readmePath, schemaPath)
 }
