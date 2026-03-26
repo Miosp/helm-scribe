@@ -15,6 +15,26 @@ image:
   # Image tag
   tag: "latest"
 
+# @section Network parameters
+
+# Service type
+# @type string
+service_type: ClusterIP
+
+# Optional description
+# @type string?
+optionalDescription:
+
+# Allowed tags
+# @type string[]
+tags: []
+
+# List of ingress hosts
+# @item host: string
+# @item paths: object[]
+# @item paths[].path: string
+hosts: []
+
 # @section Internal
 
 # Internal setting, not user-facing
