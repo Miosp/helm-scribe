@@ -123,6 +123,19 @@ Modifiers:
 | `string?[]` | Array of nullable    | `{"type": "array", "items": {"type": ["string", "null"]}}`    |
 | `string?[]?`| Both nullable        | `{"type": ["array", "null"], "items": {"type": ["string", "null"]}}` |
 | `object[]`  | Array of objects     | Use with `@item` to define item properties                    |
+| `object?`   | Nullable object      | `{"type": ["object", "null"], "properties": ...}`             |
+
+The `?` modifier works on all types, including `object`. A nullable object with children retains its `properties` constraint but also accepts `null`. Object properties can independently be nullable:
+
+```yaml
+# @type object?
+service:
+  # @type string?
+  description:
+  port: 80
+```
+
+This produces a schema where `service` itself can be null, and `service.description` can be either a string or null, while `service.port` must be an integer.
 
 ## Schema generation
 
