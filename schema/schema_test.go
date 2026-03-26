@@ -462,6 +462,105 @@ func TestGenerate_ArrayOfNullableItems(t *testing.T) {
 	}
 }
 
+func TestGenerate_NullableItemsAllTypes(t *testing.T) {
+	tests := []struct {
+		name        string
+		baseType    string
+		validItem   string
+		invalidItem string
+	}{
+		{"integer", "integer", "1", `"text"`},
+		{"number", "number", "1.5", `"text"`},
+		{"boolean", "boolean", "true", `"text"`},
+		{"string", "string", `"hello"`, "123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+"?[] array of nullable", func(t *testing.T) {
+			nodes := []*model.ValueNode{
+				{Key: "val", Path: "val", Type: tt.baseType + "[]", ItemNullable: true, Default: []interface{}{}},
+			}
+			data, err := Generate(nodes)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Structure: items type should be [<baseType>, null]
+			schema := mustUnmarshal(t, data)
+			p := prop(t, schema, "val")
+			if p["type"] != "array" {
+				t.Fatalf("outer type: got %v, want array", p["type"])
+			}
+			items := p["items"].(map[string]interface{})
+			typeArr, ok := items["type"].([]interface{})
+			if !ok || len(typeArr) != 2 || typeArr[0] != tt.baseType || typeArr[1] != "null" {
+				t.Fatalf("items type: expected [%s null], got %v", tt.baseType, items["type"])
+			}
+
+			sch := compileSchema(t, data)
+
+			valid := unmarshalDoc(t, `{"val": [`+tt.validItem+`]}`)
+			if err := sch.Validate(valid); err != nil {
+				t.Errorf("valid item rejected: %v", err)
+			}
+
+			withNull := unmarshalDoc(t, `{"val": [`+tt.validItem+`, null]}`)
+			if err := sch.Validate(withNull); err != nil {
+				t.Errorf("null item rejected: %v", err)
+			}
+
+			invalid := unmarshalDoc(t, `{"val": [`+tt.invalidItem+`]}`)
+			if err := sch.Validate(invalid); err == nil {
+				t.Errorf("invalid item type should be rejected")
+			}
+		})
+
+		t.Run(tt.name+"?[]? nullable array of nullable", func(t *testing.T) {
+			nodes := []*model.ValueNode{
+				{Key: "val", Path: "val", Type: tt.baseType + "[]", Nullable: true, ItemNullable: true, Default: []interface{}{}},
+			}
+			data, err := Generate(nodes)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			schema := mustUnmarshal(t, data)
+			p := prop(t, schema, "val")
+			outerType, ok := p["type"].([]interface{})
+			if !ok || len(outerType) != 2 || outerType[0] != "array" || outerType[1] != "null" {
+				t.Fatalf("outer type: expected [array null], got %v", p["type"])
+			}
+			items := p["items"].(map[string]interface{})
+			itemType, ok := items["type"].([]interface{})
+			if !ok || len(itemType) != 2 || itemType[0] != tt.baseType || itemType[1] != "null" {
+				t.Fatalf("items type: expected [%s null], got %v", tt.baseType, items["type"])
+			}
+
+			sch := compileSchema(t, data)
+
+			valid := unmarshalDoc(t, `{"val": [`+tt.validItem+`]}`)
+			if err := sch.Validate(valid); err != nil {
+				t.Errorf("valid item rejected: %v", err)
+			}
+
+			withNull := unmarshalDoc(t, `{"val": [`+tt.validItem+`, null]}`)
+			if err := sch.Validate(withNull); err != nil {
+				t.Errorf("null item rejected: %v", err)
+			}
+
+			nullArray := unmarshalDoc(t, `{"val": null}`)
+			if err := sch.Validate(nullArray); err != nil {
+				t.Errorf("null array rejected: %v", err)
+			}
+
+			invalid := unmarshalDoc(t, `{"val": [`+tt.invalidItem+`]}`)
+			if err := sch.Validate(invalid); err == nil {
+				t.Errorf("invalid item type should be rejected")
+			}
+		})
+	}
+}
+
 func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
 	// string?[]? -> (array | null) of (string | null)
 	nodes := []*model.ValueNode{
