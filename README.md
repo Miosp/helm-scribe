@@ -158,6 +158,8 @@ Note that zero-values (`false`, `0`, `""`) count as explicit defaults, so fields
 
 Values that are `null` without an explicit `@type` annotation produce an unconstrained schema (no `type` field, accepts any value) and a warning on stderr. Use `@type` to specify the intended type for null-valued fields.
 
+The generated schema does not set `additionalProperties: false`, so extra properties not defined in `values.yaml` are accepted. This is intentional: Helm passes values through to subcharts, and strict schemas would reject subchart values.
+
 ## Limitations
 
 - `@item` paths are split on `.` separators. YAML keys containing literal dots are not supported in `@item` path expressions.

@@ -147,9 +147,18 @@ func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 				"items": buildItemSchema(info.children),
 			}
 		} else {
-			typ, nullable := parseItemType(info.typ)
+			baseType, nullable, isArray, itemNullable := parseItemType(info.typ)
 			p := make(map[string]interface{})
-			setType(p, typ, nullable)
+			if isArray {
+				setType(p, "array", nullable)
+				if baseType != "object" {
+					itemSchema := make(map[string]interface{})
+					setType(itemSchema, baseType, itemNullable)
+					p["items"] = itemSchema
+				}
+			} else {
+				setType(p, baseType, nullable)
+			}
 			properties[name] = p
 		}
 	}
@@ -158,15 +167,23 @@ func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 	return result
 }
 
-func parseItemType(expr string) (typ string, nullable bool) {
+func parseItemType(expr string) (baseType string, nullable bool, isArray bool, itemNullable bool) {
+	// Outer nullable: trailing ? (after any [])
 	if strings.HasSuffix(expr, "?") {
 		nullable = true
 		expr = strings.TrimSuffix(expr, "?")
 	}
-	if strings.HasSuffix(expr, "[]") {
-		return "array", nullable
+	// Array: trailing []
+	isArray = strings.HasSuffix(expr, "[]")
+	if isArray {
+		expr = strings.TrimSuffix(expr, "[]")
 	}
-	return expr, nullable
+	// Item nullable: ? before [] (e.g. string?[] -> items are nullable)
+	if isArray && strings.HasSuffix(expr, "?") {
+		itemNullable = true
+		expr = strings.TrimSuffix(expr, "?")
+	}
+	return expr, nullable, isArray, itemNullable
 }
 
 // splitItemPath splits an @item path into top-level key and remainder.

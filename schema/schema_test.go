@@ -897,6 +897,100 @@ func TestGenerate_NullableNestedObjects(t *testing.T) {
 	}
 }
 
+func TestGenerate_ItemWithNullableArrayType(t *testing.T) {
+	// @item values: string?[] should produce array of nullable strings
+	nodes := []*model.ValueNode{
+		{
+			Key: "entries", Path: "entries", Type: "object[]",
+			Default: []interface{}{},
+			Items: []*model.ItemDef{
+				{Path: "name", Type: "string"},
+				{Path: "values", Type: "string?[]"},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	entries := prop(t, schema, "entries")
+	items := entries["items"].(map[string]interface{})
+	itemProps := items["properties"].(map[string]interface{})
+
+	vals := itemProps["values"].(map[string]interface{})
+	if vals["type"] != "array" {
+		t.Fatalf("values type: got %v, want array", vals["type"])
+	}
+	valItems, ok := vals["items"].(map[string]interface{})
+	if !ok {
+		t.Fatal("values should have items constraint")
+	}
+	typeArr, ok := valItems["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
+		t.Errorf("values items type: expected [string null], got %v", valItems["type"])
+	}
+
+	// Also validate with draft-07
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"entries": [{"name": "a", "values": ["x", null]}]}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid doc rejected: %v", err)
+	}
+
+	invalid := unmarshalDoc(t, `{"entries": [{"name": "a", "values": [123]}]}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("integer item in string?[] should be rejected")
+	}
+}
+
+func TestGenerate_ItemWithNullableArray(t *testing.T) {
+	// @item values: string[]? should produce nullable array of strings
+	nodes := []*model.ValueNode{
+		{
+			Key: "entries", Path: "entries", Type: "object[]",
+			Default: []interface{}{},
+			Items: []*model.ItemDef{
+				{Path: "name", Type: "string"},
+				{Path: "tags", Type: "string[]?"},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	entries := prop(t, schema, "entries")
+	items := entries["items"].(map[string]interface{})
+	itemProps := items["properties"].(map[string]interface{})
+
+	tags := itemProps["tags"].(map[string]interface{})
+	typeArr, ok := tags["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "array" || typeArr[1] != "null" {
+		t.Fatalf("tags type: expected [array null], got %v", tags["type"])
+	}
+	tagItems, ok := tags["items"].(map[string]interface{})
+	if !ok {
+		t.Fatal("tags should have items constraint")
+	}
+	if tagItems["type"] != "string" {
+		t.Errorf("tags items type: expected string, got %v", tagItems["type"])
+	}
+
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"entries": [{"name": "a", "tags": null}]}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("null array rejected: %v", err)
+	}
+}
+
 func TestGenerate_NullableObjectNoChildren(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "extra", Path: "extra", Type: "object", Nullable: true, Default: nil},
