@@ -119,6 +119,9 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 		}
 
 		if ann.Type != "" {
+			if w := validateType(ann.Type, n.Path); w != "" {
+				*warnings = append(*warnings, w)
+			}
 			n.Type = ann.Type
 			n.Nullable = ann.Nullable
 			n.ItemNullable = ann.ItemNullable
@@ -194,6 +197,18 @@ func decodeSequence(node *yaml.Node) interface{} {
 		}
 	}
 	return items
+}
+
+var validBaseTypes = map[string]bool{
+	"string": true, "integer": true, "number": true, "boolean": true, "object": true,
+}
+
+func validateType(typ, path string) string {
+	base := strings.TrimSuffix(typ, "[]")
+	if !validBaseTypes[base] {
+		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, or object", path, typ)
+	}
+	return ""
 }
 
 func propagateSection(nodes []*model.ValueNode, section string) {

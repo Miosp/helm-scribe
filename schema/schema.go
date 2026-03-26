@@ -8,12 +8,13 @@ import (
 )
 
 func Generate(nodes []*model.ValueNode) ([]byte, error) {
+	props, req := buildPropertiesWithRequired(nodes)
 	schema := map[string]interface{}{
 		"$schema":    "https://json-schema.org/draft-07/schema#",
 		"type":       "object",
-		"properties": buildProperties(nodes),
+		"properties": props,
 	}
-	if req := requiredKeys(nodes); len(req) > 0 {
+	if len(req) > 0 {
 		schema["required"] = req
 	}
 	data, err := json.MarshalIndent(schema, "", "  ")
@@ -23,15 +24,22 @@ func Generate(nodes []*model.ValueNode) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-func buildProperties(nodes []*model.ValueNode) map[string]interface{} {
+func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]interface{}, []string) {
 	props := make(map[string]interface{})
+	var req []string
 	for _, n := range nodes {
-		props[n.Key] = nodeSchema(n)
+		schema, hasRequired := nodeSchema(n)
+		props[n.Key] = schema
+		if hasRequired {
+			req = append(req, n.Key)
+		}
 	}
-	return props
+	return props, req
 }
 
-func nodeSchema(n *model.ValueNode) map[string]interface{} {
+// nodeSchema returns the JSON Schema for a single node and whether the node
+// has required content (non-null default or required descendants).
+func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 	s := make(map[string]interface{})
 
 	if n.Description != "" {
@@ -44,18 +52,23 @@ func nodeSchema(n *model.ValueNode) map[string]interface{} {
 		baseType = strings.TrimSuffix(baseType, "[]")
 	}
 
+	hasRequired := n.Default != nil
+
 	switch {
+	// Untyped null value (inferred from nil YAML value, not from ? suffix)
 	case n.Type == "null" && !n.Nullable:
 		if n.Default == nil {
 			s["default"] = nil
 		}
-		return s
+		return s, false
 
 	case len(n.Children) > 0:
 		setType(s, "object", n.Nullable)
-		s["properties"] = buildProperties(n.Children)
-		if req := requiredKeys(n.Children); len(req) > 0 {
+		props, req := buildPropertiesWithRequired(n.Children)
+		s["properties"] = props
+		if len(req) > 0 {
 			s["required"] = req
+			hasRequired = true
 		}
 
 	case isArray && len(n.Items) > 0:
@@ -78,7 +91,7 @@ func nodeSchema(n *model.ValueNode) map[string]interface{} {
 		s["default"] = n.Default
 	}
 
-	return s
+	return s, hasRequired && !n.Nullable
 }
 
 func setType(s map[string]interface{}, typ string, nullable bool) {
@@ -89,20 +102,6 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 	}
 }
 
-func requiredKeys(nodes []*model.ValueNode) []string {
-	var req []string
-	for _, n := range nodes {
-		if n.Nullable {
-			continue
-		}
-		if n.Default != nil {
-			req = append(req, n.Key)
-		} else if len(n.Children) > 0 && len(requiredKeys(n.Children)) > 0 {
-			req = append(req, n.Key)
-		}
-	}
-	return req
-}
 
 func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 	result := map[string]interface{}{
