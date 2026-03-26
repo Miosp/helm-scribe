@@ -64,17 +64,20 @@ func TestParseAnnotations_Empty(t *testing.T) {
 
 func TestParseAnnotations_Type(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		typ      string
-		nullable bool
+		name         string
+		input        string
+		typ          string
+		nullable     bool
+		itemNullable bool
 	}{
-		{"plain type", "# @type string", "string", false},
-		{"nullable type", "# @type string?", "string", true},
-		{"array type", "# @type string[]", "string[]", false},
-		{"nullable array", "# @type string[]?", "string[]", true},
-		{"integer type", "# @type integer", "integer", false},
-		{"object type", "# @type object", "object", false},
+		{"plain type", "# @type string", "string", false, false},
+		{"nullable type", "# @type string?", "string", true, false},
+		{"array type", "# @type string[]", "string[]", false, false},
+		{"nullable array", "# @type string[]?", "string[]", true, false},
+		{"array of nullable", "# @type string?[]", "string[]", false, true},
+		{"nullable array of nullable", "# @type string?[]?", "string[]", true, true},
+		{"integer type", "# @type integer", "integer", false, false},
+		{"object type", "# @type object", "object", false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,6 +87,9 @@ func TestParseAnnotations_Type(t *testing.T) {
 			}
 			if ann.Nullable != tt.nullable {
 				t.Errorf("nullable: got %v, want %v", ann.Nullable, tt.nullable)
+			}
+			if ann.ItemNullable != tt.itemNullable {
+				t.Errorf("itemNullable: got %v, want %v", ann.ItemNullable, tt.itemNullable)
 			}
 		})
 	}

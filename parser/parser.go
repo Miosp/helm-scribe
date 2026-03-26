@@ -121,6 +121,7 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 		if ann.Type != "" {
 			n.Type = ann.Type
 			n.Nullable = ann.Nullable
+			n.ItemNullable = ann.ItemNullable
 		}
 		if len(ann.Items) > 0 {
 			n.Items = ann.Items

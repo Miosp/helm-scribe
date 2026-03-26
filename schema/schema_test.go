@@ -410,3 +410,110 @@ func TestGenerate_ObjectArraySchemaValidates(t *testing.T) {
 		t.Error("expected validation error for wrong host type")
 	}
 }
+
+func TestGenerate_ArrayOfNullableItems(t *testing.T) {
+	// string?[] -> array of (string | null)
+	nodes := []*model.ValueNode{
+		{Key: "names", Path: "names", Type: "string[]", ItemNullable: true, Default: []interface{}{}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify schema structure
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "names")
+	if p["type"] != "array" {
+		t.Fatalf("type: got %v, want array", p["type"])
+	}
+	items := p["items"].(map[string]interface{})
+	typeArr, ok := items["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
+		t.Errorf("items type: expected [string null], got %v", items["type"])
+	}
+
+	// Validate with draft-07
+	sch := compileSchema(t, data)
+
+	// Array with strings — valid
+	valid := unmarshalDoc(t, `{"names": ["alice", "bob"]}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("string items rejected: %v", err)
+	}
+
+	// Array with null items — valid (items are nullable)
+	withNulls := unmarshalDoc(t, `{"names": ["alice", null, "bob"]}`)
+	if err := sch.Validate(withNulls); err != nil {
+		t.Errorf("null items rejected: %v", err)
+	}
+
+	// Array itself as null — invalid (array is not nullable)
+	nullArray := unmarshalDoc(t, `{"names": null}`)
+	if err := sch.Validate(nullArray); err == nil {
+		t.Error("null array should be rejected (array not nullable)")
+	}
+
+	// Wrong item type — invalid
+	wrongItem := unmarshalDoc(t, `{"names": [123]}`)
+	if err := sch.Validate(wrongItem); err == nil {
+		t.Error("integer item should be rejected")
+	}
+}
+
+func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
+	// string?[]? -> (array | null) of (string | null)
+	nodes := []*model.ValueNode{
+		{Key: "names", Path: "names", Type: "string[]", Nullable: true, ItemNullable: true, Default: []interface{}{}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify schema structure
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "names")
+
+	// Outer type should be [array, null]
+	outerType, ok := p["type"].([]interface{})
+	if !ok || len(outerType) != 2 || outerType[0] != "array" || outerType[1] != "null" {
+		t.Errorf("outer type: expected [array null], got %v", p["type"])
+	}
+
+	// Items type should be [string, null]
+	items := p["items"].(map[string]interface{})
+	itemType, ok := items["type"].([]interface{})
+	if !ok || len(itemType) != 2 || itemType[0] != "string" || itemType[1] != "null" {
+		t.Errorf("items type: expected [string null], got %v", items["type"])
+	}
+
+	// Validate with draft-07
+	sch := compileSchema(t, data)
+
+	// Array with strings — valid
+	valid := unmarshalDoc(t, `{"names": ["alice", "bob"]}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("string items rejected: %v", err)
+	}
+
+	// Array with null items — valid
+	withNulls := unmarshalDoc(t, `{"names": ["alice", null]}`)
+	if err := sch.Validate(withNulls); err != nil {
+		t.Errorf("null items rejected: %v", err)
+	}
+
+	// Null array — valid (array itself is nullable)
+	nullArray := unmarshalDoc(t, `{"names": null}`)
+	if err := sch.Validate(nullArray); err != nil {
+		t.Errorf("null array rejected: %v", err)
+	}
+
+	// Wrong item type — invalid
+	wrongItem := unmarshalDoc(t, `{"names": [123]}`)
+	if err := sch.Validate(wrongItem); err == nil {
+		t.Error("integer item should be rejected")
+	}
+}

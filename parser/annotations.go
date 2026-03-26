@@ -11,9 +11,10 @@ type Annotations struct {
 	Description string
 	Section     string
 	Skip        bool
-	Type        string
-	Nullable    bool
-	Items       []*model.ItemDef
+	Type         string
+	Nullable     bool
+	ItemNullable bool
+	Items        []*model.ItemDef
 }
 
 // ParseAnnotations extracts description text and tags from a raw HeadComment.
@@ -38,7 +39,7 @@ func ParseAnnotations(raw string) Annotations {
 			continue
 		}
 		if strings.HasPrefix(line, "@type ") {
-			ann.Type, ann.Nullable = parseTypeExpr(strings.TrimPrefix(line, "@type "))
+			ann.Type, ann.Nullable, ann.ItemNullable = parseTypeExpr(strings.TrimPrefix(line, "@type "))
 			continue
 		}
 		if strings.HasPrefix(line, "@item ") {
@@ -59,13 +60,31 @@ func ParseAnnotations(raw string) Annotations {
 	return ann
 }
 
-func parseTypeExpr(expr string) (typ string, nullable bool) {
+func parseTypeExpr(expr string) (typ string, nullable bool, itemNullable bool) {
 	expr = strings.TrimSpace(expr)
+
+	// Outer nullable: trailing ? (after any [])
 	if strings.HasSuffix(expr, "?") {
 		nullable = true
 		expr = strings.TrimSuffix(expr, "?")
 	}
-	return expr, nullable
+
+	// Array: trailing []
+	isArray := strings.HasSuffix(expr, "[]")
+	if isArray {
+		expr = strings.TrimSuffix(expr, "[]")
+	}
+
+	// Item nullable: ? before [] (e.g. string?[] -> string, itemNullable=true)
+	if isArray && strings.HasSuffix(expr, "?") {
+		itemNullable = true
+		expr = strings.TrimSuffix(expr, "?")
+	}
+
+	if isArray {
+		return expr + "[]", nullable, itemNullable
+	}
+	return expr, nullable, itemNullable
 }
 
 func parseItemDef(raw string) (*model.ItemDef, bool) {

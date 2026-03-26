@@ -13,7 +13,8 @@ type ValueNode struct {
 	Description string
 	Type        string // inferred from value
 	Default     interface{}
-	Nullable    bool
+	Nullable     bool
+	ItemNullable bool
 	Section     string
 	Skip        bool
 	Children    []*ValueNode

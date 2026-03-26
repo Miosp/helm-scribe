@@ -61,7 +61,9 @@ func nodeSchema(n *model.ValueNode) map[string]interface{} {
 	case isArray:
 		setType(s, "array", n.Nullable)
 		if baseType != "object" {
-			s["items"] = map[string]interface{}{"type": baseType}
+			itemSchema := make(map[string]interface{})
+			setType(itemSchema, baseType, n.ItemNullable)
+			s["items"] = itemSchema
 		}
 
 	default:
