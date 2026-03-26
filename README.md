@@ -47,7 +47,7 @@ helm-scribe --readme-only
 |---------------------|-------|------------------------------------------------|------------------------|
 | `--values-file`     | `-v`  | Path to values file                            | `values.yaml`          |
 | `--readme-file`     | `-r`  | Path to README file                            | `README.md`            |
-| `--schema-file`     | `-s`  | Path to schema output file                     | `values.schema.json`   |
+| `--schema-file`     | `-s`  | Path to schema output file                     | Next to values file    |
 | `--config`          | `-c`  | Path to config file                            | `.helm-scribe.yaml`    |
 | `--truncate-length` | `-t`  | Max default value length before truncation     | `80`                   |
 | `--dry-run`         | `-n`  | Print output to stdout instead of writing file | `false`                |
@@ -139,7 +139,9 @@ This produces a schema where `service` itself can be null, and `service.descript
 
 ## Schema generation
 
-The generated `values.schema.json` is a self-contained JSON Schema draft-07 document with no `$ref` or `$defs`. This ensures compatibility with Helm's built-in schema validator and Artifact Hub.
+The generated `values.schema.json` is placed next to the values file by default. Use `--schema-file` to override the output path.
+
+The schema is a self-contained JSON Schema draft-07 document with no `$ref` or `$defs`. This ensures compatibility with Helm's built-in schema validator and Artifact Hub.
 
 A property is marked as required unless its default value is null or its type is nullable (`?` suffix).
 
