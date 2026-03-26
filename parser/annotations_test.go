@@ -61,3 +61,60 @@ func TestParseAnnotations_Empty(t *testing.T) {
 		t.Errorf("expected empty annotation, got %+v", ann)
 	}
 }
+
+func TestParseAnnotations_Type(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		typ      string
+		nullable bool
+	}{
+		{"plain type", "# @type string", "string", false},
+		{"nullable type", "# @type string?", "string", true},
+		{"array type", "# @type string[]", "string[]", false},
+		{"nullable array", "# @type string[]?", "string[]", true},
+		{"integer type", "# @type integer", "integer", false},
+		{"object type", "# @type object", "object", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ann := ParseAnnotations(tt.input)
+			if ann.Type != tt.typ {
+				t.Errorf("type: got %q, want %q", ann.Type, tt.typ)
+			}
+			if ann.Nullable != tt.nullable {
+				t.Errorf("nullable: got %v, want %v", ann.Nullable, tt.nullable)
+			}
+		})
+	}
+}
+
+func TestParseAnnotations_Item(t *testing.T) {
+	input := "# List of hosts\n# @item host: string\n# @item paths: object[]"
+	ann := ParseAnnotations(input)
+
+	if len(ann.Items) != 2 {
+		t.Fatalf("items: got %d, want 2", len(ann.Items))
+	}
+	if ann.Items[0].Path != "host" || ann.Items[0].Type != "string" {
+		t.Errorf("item[0]: got %+v", ann.Items[0])
+	}
+	if ann.Items[1].Path != "paths" || ann.Items[1].Type != "object[]" {
+		t.Errorf("item[1]: got %+v", ann.Items[1])
+	}
+	if ann.Description != "List of hosts" {
+		t.Errorf("description: got %q", ann.Description)
+	}
+}
+
+func TestParseAnnotations_ItemNestedPath(t *testing.T) {
+	input := "# @item paths[].path: string\n# @item paths[].pathType: string"
+	ann := ParseAnnotations(input)
+
+	if len(ann.Items) != 2 {
+		t.Fatalf("items: got %d, want 2", len(ann.Items))
+	}
+	if ann.Items[0].Path != "paths[].path" {
+		t.Errorf("item[0] path: got %q", ann.Items[0].Path)
+	}
+}
