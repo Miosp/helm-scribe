@@ -83,9 +83,13 @@ func run(cfg config.Config, valuesPath, readmePath string) error {
 		return fmt.Errorf("reading values file: %w", err)
 	}
 
-	nodes, err := parser.Parse(data)
+	nodes, warnings, err := parser.Parse(data)
 	if err != nil {
 		return fmt.Errorf("parsing values: %w", err)
+	}
+
+	for _, w := range warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
 	opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint}

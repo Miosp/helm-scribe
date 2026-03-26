@@ -21,7 +21,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nodes, err := parser.Parse(valuesData)
+	nodes, _, err := parser.Parse(valuesData)
 	if err != nil {
 		t.Fatal(err)
 	}
