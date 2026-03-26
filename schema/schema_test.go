@@ -616,3 +616,226 @@ func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
 		t.Error("integer item should be rejected")
 	}
 }
+
+func TestGenerate_NullableObject(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "service", Path: "service", Type: "object", Nullable: true,
+			Children: []*model.ValueNode{
+				{Key: "type", Path: "service.type", Type: "string", Default: "ClusterIP"},
+				{Key: "port", Path: "service.port", Type: "integer", Default: 80},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "service")
+	typeArr, ok := p["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "object" || typeArr[1] != "null" {
+		t.Fatalf("type: expected [object null], got %v", p["type"])
+	}
+	if _, ok := p["properties"]; !ok {
+		t.Fatal("missing properties on nullable object")
+	}
+
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"service": {"type": "NodePort", "port": 443}}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid object rejected: %v", err)
+	}
+
+	nullObj := unmarshalDoc(t, `{"service": null}`)
+	if err := sch.Validate(nullObj); err != nil {
+		t.Errorf("null object rejected: %v", err)
+	}
+
+	wrongProp := unmarshalDoc(t, `{"service": {"type": "ClusterIP", "port": "not-a-number"}}`)
+	if err := sch.Validate(wrongProp); err == nil {
+		t.Error("wrong property type should be rejected")
+	}
+
+	wrongObjType := unmarshalDoc(t, `{"service": "not-an-object"}`)
+	if err := sch.Validate(wrongObjType); err == nil {
+		t.Error("string instead of object should be rejected")
+	}
+}
+
+func TestGenerate_ObjectWithNullableProperties(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "config", Path: "config", Type: "object",
+			Children: []*model.ValueNode{
+				{Key: "name", Path: "config.name", Type: "string", Default: "app"},
+				{Key: "description", Path: "config.description", Type: "string", Nullable: true, Default: nil},
+				{Key: "replicas", Path: "config.replicas", Type: "integer", Nullable: true, Default: nil},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	cfg := prop(t, schema, "config")
+	if cfg["type"] != "object" {
+		t.Fatalf("config type: got %v", cfg["type"])
+	}
+	cfgProps := cfg["properties"].(map[string]interface{})
+
+	name := cfgProps["name"].(map[string]interface{})
+	if name["type"] != "string" {
+		t.Errorf("name type: got %v", name["type"])
+	}
+
+	desc := cfgProps["description"].(map[string]interface{})
+	descType, ok := desc["type"].([]interface{})
+	if !ok || len(descType) != 2 || descType[0] != "string" || descType[1] != "null" {
+		t.Errorf("description type: expected [string null], got %v", desc["type"])
+	}
+
+	rep := cfgProps["replicas"].(map[string]interface{})
+	repType, ok := rep["type"].([]interface{})
+	if !ok || len(repType) != 2 || repType[0] != "integer" || repType[1] != "null" {
+		t.Errorf("replicas type: expected [integer null], got %v", rep["type"])
+	}
+
+	req, ok := cfg["required"].([]interface{})
+	if !ok || len(req) != 1 || req[0] != "name" {
+		t.Errorf("required: expected [name], got %v", req)
+	}
+
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"config": {"name": "myapp", "description": "A service", "replicas": 3}}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid config rejected: %v", err)
+	}
+
+	withNulls := unmarshalDoc(t, `{"config": {"name": "myapp", "description": null, "replicas": null}}`)
+	if err := sch.Validate(withNulls); err != nil {
+		t.Errorf("null nullable properties rejected: %v", err)
+	}
+
+	nullName := unmarshalDoc(t, `{"config": {"name": null}}`)
+	if err := sch.Validate(nullName); err == nil {
+		t.Error("null non-nullable name should be rejected")
+	}
+
+	wrongDescType := unmarshalDoc(t, `{"config": {"name": "myapp", "description": 123}}`)
+	if err := sch.Validate(wrongDescType); err == nil {
+		t.Error("integer for nullable string should be rejected")
+	}
+}
+
+func TestGenerate_NullableNestedObjects(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "outer", Path: "outer", Type: "object",
+			Children: []*model.ValueNode{
+				{
+					Key: "middle", Path: "outer.middle", Type: "object", Nullable: true,
+					Children: []*model.ValueNode{
+						{Key: "leaf", Path: "outer.middle.leaf", Type: "string", Default: "val"},
+						{Key: "optLeaf", Path: "outer.middle.optLeaf", Type: "integer", Nullable: true, Default: nil},
+					},
+				},
+				{Key: "sibling", Path: "outer.sibling", Type: "string", Default: "hi"},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	outer := prop(t, schema, "outer")
+	outerProps := outer["properties"].(map[string]interface{})
+	middle := outerProps["middle"].(map[string]interface{})
+	midType, ok := middle["type"].([]interface{})
+	if !ok || len(midType) != 2 || midType[0] != "object" || midType[1] != "null" {
+		t.Fatalf("middle type: expected [object null], got %v", middle["type"])
+	}
+	midProps := middle["properties"].(map[string]interface{})
+	optLeaf := midProps["optLeaf"].(map[string]interface{})
+	optLeafType, ok := optLeaf["type"].([]interface{})
+	if !ok || len(optLeafType) != 2 || optLeafType[0] != "integer" || optLeafType[1] != "null" {
+		t.Errorf("optLeaf type: expected [integer null], got %v", optLeaf["type"])
+	}
+
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"outer": {"middle": {"leaf": "x", "optLeaf": 5}, "sibling": "hi"}}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("fully populated rejected: %v", err)
+	}
+
+	nullMiddle := unmarshalDoc(t, `{"outer": {"middle": null, "sibling": "hi"}}`)
+	if err := sch.Validate(nullMiddle); err != nil {
+		t.Errorf("null middle rejected: %v", err)
+	}
+
+	nullOptLeaf := unmarshalDoc(t, `{"outer": {"middle": {"leaf": "x", "optLeaf": null}, "sibling": "hi"}}`)
+	if err := sch.Validate(nullOptLeaf); err != nil {
+		t.Errorf("null optLeaf rejected: %v", err)
+	}
+
+	nullOuter := unmarshalDoc(t, `{"outer": null}`)
+	if err := sch.Validate(nullOuter); err == nil {
+		t.Error("null non-nullable outer should be rejected")
+	}
+
+	nullRequiredLeaf := unmarshalDoc(t, `{"outer": {"middle": {"leaf": null, "optLeaf": 1}, "sibling": "hi"}}`)
+	if err := sch.Validate(nullRequiredLeaf); err == nil {
+		t.Error("null non-nullable leaf should be rejected")
+	}
+
+	wrongDeep := unmarshalDoc(t, `{"outer": {"middle": {"leaf": "x", "optLeaf": "not-int"}, "sibling": "hi"}}`)
+	if err := sch.Validate(wrongDeep); err == nil {
+		t.Error("wrong type for optLeaf should be rejected")
+	}
+}
+
+func TestGenerate_NullableObjectNoChildren(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "extra", Path: "extra", Type: "object", Nullable: true, Default: nil},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "extra")
+	typeArr, ok := p["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "object" || typeArr[1] != "null" {
+		t.Fatalf("type: expected [object null], got %v", p["type"])
+	}
+
+	sch := compileSchema(t, data)
+
+	valid := unmarshalDoc(t, `{"extra": {"any": "thing"}}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid object rejected: %v", err)
+	}
+
+	nullVal := unmarshalDoc(t, `{"extra": null}`)
+	if err := sch.Validate(nullVal); err != nil {
+		t.Errorf("null rejected: %v", err)
+	}
+
+	wrongObjType := unmarshalDoc(t, `{"extra": "not-object"}`)
+	if err := sch.Validate(wrongObjType); err == nil {
+		t.Error("string for nullable object should be rejected")
+	}
+}
