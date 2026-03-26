@@ -118,9 +118,11 @@ Modifiers:
 |-------------|----------------------|----------------------------------------------------|
 | `string`    | Plain type           | `{"type": "string"}`                               |
 | `string?`   | Nullable             | `{"type": ["string", "null"]}`                     |
-| `string[]`  | Array of type        | `{"type": "array", "items": {"type": "string"}}`   |
-| `string[]?` | Nullable array       | `{"type": ["array", "null"], "items": ...}`        |
-| `object[]`  | Array of objects     | Use with `@item` to define item properties         |
+| `string[]`  | Array of type        | `{"type": "array", "items": {"type": "string"}}`              |
+| `string[]?` | Nullable array       | `{"type": ["array", "null"], "items": {"type": "string"}}`    |
+| `string?[]` | Array of nullable    | `{"type": "array", "items": {"type": ["string", "null"]}}`    |
+| `string?[]?`| Both nullable        | `{"type": ["array", "null"], "items": {"type": ["string", "null"]}}` |
+| `object[]`  | Array of objects     | Use with `@item` to define item properties                    |
 
 ## Schema generation
 
