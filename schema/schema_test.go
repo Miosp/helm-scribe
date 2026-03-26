@@ -617,6 +617,98 @@ func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
 	}
 }
 
+func TestGenerate_ObjectWithAllNullChildrenNotRequired(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "app"},
+		{
+			Key: "config", Path: "config", Type: "object",
+			Children: []*model.ValueNode{
+				{Key: "desc", Path: "config.desc", Type: "null", Default: nil},
+				{Key: "label", Path: "config.label", Type: "null", Default: nil},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	req, ok := schema["required"].([]interface{})
+	if !ok {
+		t.Fatal("required missing")
+	}
+	// config should NOT be required — all its children are null/non-required
+	if len(req) != 1 || req[0] != "name" {
+		t.Errorf("required: got %v, want [name]", req)
+	}
+}
+
+func TestGenerate_DeeplyNestedAllNullNotRequired(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "top", Path: "top", Type: "object",
+			Children: []*model.ValueNode{
+				{
+					Key: "mid", Path: "top.mid", Type: "object",
+					Children: []*model.ValueNode{
+						{Key: "bottom", Path: "top.mid.bottom", Type: "null", Default: nil},
+					},
+				},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	// No property at any level should be required
+	if _, ok := schema["required"]; ok {
+		t.Errorf("top-level required should be absent, got %v", schema["required"])
+	}
+
+	top := prop(t, schema, "top")
+	if _, ok := top["required"]; ok {
+		t.Errorf("top.required should be absent, got %v", top["required"])
+	}
+
+	topProps := top["properties"].(map[string]interface{})
+	mid := topProps["mid"].(map[string]interface{})
+	if _, ok := mid["required"]; ok {
+		t.Errorf("mid.required should be absent, got %v", mid["required"])
+	}
+}
+
+func TestGenerate_ObjectWithMixedChildrenRequired(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "config", Path: "config", Type: "object",
+			Children: []*model.ValueNode{
+				{Key: "name", Path: "config.name", Type: "string", Default: "app"},
+				{Key: "label", Path: "config.label", Type: "null", Default: nil},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	req, ok := schema["required"].([]interface{})
+	if !ok {
+		t.Fatal("required missing")
+	}
+	if len(req) != 1 || req[0] != "config" {
+		t.Errorf("required: got %v, want [config]", req)
+	}
+}
+
 func TestGenerate_NullableObject(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{

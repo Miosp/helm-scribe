@@ -222,13 +222,13 @@ func TestEndToEnd_SchemaRejectsInvalidTypes(t *testing.T) {
 		name string
 		doc  string
 	}{
-		{"string where integer expected", `{"replicaCount": "three", "fullnameOverride": "", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"integer where string expected", `{"replicaCount": 1, "fullnameOverride": 123, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"string where boolean expected", `{"replicaCount": 1, "fullnameOverride": "", "port": 80, "debug": "yes", "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"integer where number expected", `{"replicaCount": 1, "fullnameOverride": "", "port": 80, "debug": false, "cpuLimit": "high", "tags": [], "hosts": []}`},
-		{"wrong array item type", `{"replicaCount": 1, "fullnameOverride": "", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [123], "hosts": []}`},
-		{"null on non-nullable string", `{"replicaCount": 1, "fullnameOverride": null, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"wrong type in @item host", `{"replicaCount": 1, "fullnameOverride": "", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [{"host": 999}]}`},
+		{"string where integer expected", `{"replicaCount": "three", "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
+		{"integer where string expected", `{"replicaCount": 1, "fullnameOverride": 123, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
+		{"string where boolean expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": "yes", "cpuLimit": 0.5, "tags": [], "hosts": []}`},
+		{"integer where number expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": "high", "tags": [], "hosts": []}`},
+		{"wrong array item type", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [123], "hosts": []}`},
+		{"null on non-nullable string", `{"replicaCount": 1, "fullnameOverride": null, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
+		{"wrong type in @item host", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [{"host": 999}]}`},
 	}
 
 	for _, tt := range tests {
@@ -258,7 +258,7 @@ func TestEndToEnd_SchemaNullableAcceptsNull(t *testing.T) {
 
 	sch := compileE2ESchema(t, schemaBytes)
 
-	base := `{"replicaCount": 1, "fullnameOverride": "", "service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [],`
+	base := `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "nginx", "tag": "latest"}, "service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [],`
 
 	// optionalDescription is string? — should accept both string and null
 	withString := unmarshalE2E(t, base+`"optionalDescription": "hello"}`)

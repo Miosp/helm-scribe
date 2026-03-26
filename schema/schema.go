@@ -16,7 +16,11 @@ func Generate(nodes []*model.ValueNode) ([]byte, error) {
 	if req := requiredKeys(nodes); len(req) > 0 {
 		schema["required"] = req
 	}
-	return json.MarshalIndent(schema, "", "  ")
+	data, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
 }
 
 func buildProperties(nodes []*model.ValueNode) map[string]interface{} {
@@ -88,7 +92,12 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 func requiredKeys(nodes []*model.ValueNode) []string {
 	var req []string
 	for _, n := range nodes {
-		if n.Default != nil && !n.Nullable {
+		if n.Nullable {
+			continue
+		}
+		if n.Default != nil {
+			req = append(req, n.Key)
+		} else if len(n.Children) > 0 && len(requiredKeys(n.Children)) > 0 {
 			req = append(req, n.Key)
 		}
 	}
@@ -161,6 +170,8 @@ func parseItemType(expr string) (typ string, nullable bool) {
 	return expr, nullable
 }
 
+// splitItemPath splits an @item path into top-level key and remainder.
+// Note: keys containing literal dots are not supported.
 func splitItemPath(path string) (top, rest string) {
 	if idx := strings.Index(path, "[]."); idx != -1 {
 		return path[:idx], path[idx+3:]

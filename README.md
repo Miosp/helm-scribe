@@ -143,9 +143,25 @@ The generated `values.schema.json` is placed next to the values file by default.
 
 The schema is a self-contained JSON Schema draft-07 document with no `$ref` or `$defs`. This ensures compatibility with Helm's built-in schema validator and Artifact Hub.
 
-A property is marked as required unless its default value is null or its type is nullable (`?` suffix).
+A property is marked as required when any of the following hold:
 
-Values that are `null` without an explicit `@type` annotation produce an empty schema (`{}`, accepting any value) and a warning on stderr.
+- It has an explicit non-null default value (e.g., `replicaCount: 1`, `debug: false`, `name: ""`)
+- It is an object with children, and at least one descendant is required (recursively)
+
+A property is **not** required when:
+
+- Its type is nullable (`?` suffix)
+- Its default value is null and it has no children
+- It is an object whose descendants are all non-required (e.g., all null without `@type`)
+
+Note that zero-values (`false`, `0`, `""`) count as explicit defaults, so fields with these defaults are required. This matches the expectation that a Helm chart defines these values intentionally.
+
+Values that are `null` without an explicit `@type` annotation produce an unconstrained schema (no `type` field, accepts any value) and a warning on stderr. Use `@type` to specify the intended type for null-valued fields.
+
+## Limitations
+
+- `@item` paths are split on `.` separators. YAML keys containing literal dots are not supported in `@item` path expressions.
+- Arrays without a `@type` or `@item` annotation produce no `items` constraint in the schema (a warning is printed).
 
 ## Configuration file
 
