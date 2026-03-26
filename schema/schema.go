@@ -137,19 +137,26 @@ func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 				"items": buildItemSchema(info.children),
 			}
 		} else {
-			baseType := info.typ
-			isArr := strings.HasSuffix(baseType, "[]")
-			if isArr {
-				baseType = strings.TrimSuffix(baseType, "[]")
-				properties[name] = map[string]interface{}{"type": "array"}
-			} else {
-				properties[name] = map[string]interface{}{"type": baseType}
-			}
+			typ, nullable := parseItemType(info.typ)
+			p := make(map[string]interface{})
+			setType(p, typ, nullable)
+			properties[name] = p
 		}
 	}
 
 	result["properties"] = properties
 	return result
+}
+
+func parseItemType(expr string) (typ string, nullable bool) {
+	if strings.HasSuffix(expr, "?") {
+		nullable = true
+		expr = strings.TrimSuffix(expr, "?")
+	}
+	if strings.HasSuffix(expr, "[]") {
+		return "array", nullable
+	}
+	return expr, nullable
 }
 
 func splitItemPath(path string) (top, rest string) {

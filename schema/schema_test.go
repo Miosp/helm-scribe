@@ -215,6 +215,40 @@ func TestGenerate_ObjectArrayWithItems(t *testing.T) {
 	}
 }
 
+func TestGenerate_NullableItemType(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "entries", Path: "entries", Type: "object[]",
+			Default: []interface{}{},
+			Items: []*model.ItemDef{
+				{Path: "name", Type: "string"},
+				{Path: "label", Type: "string?"},
+			},
+		},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	entries := prop(t, schema, "entries")
+	items := entries["items"].(map[string]interface{})
+	itemProps := items["properties"].(map[string]interface{})
+
+	name := itemProps["name"].(map[string]interface{})
+	if name["type"] != "string" {
+		t.Errorf("name type: got %v", name["type"])
+	}
+
+	label := itemProps["label"].(map[string]interface{})
+	typeArr, ok := label["type"].([]interface{})
+	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
+		t.Errorf("label type: expected [string null], got %v", label["type"])
+	}
+}
+
 func TestGenerate_NullWithoutType(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "unknown", Path: "unknown", Type: "null", Default: nil},

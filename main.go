@@ -81,6 +81,9 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 	cfg.DryRun = dryRun
 	cfg.NoPrettyPrint = noPretty
+	if schemaOnly && readmeOnly {
+		return fmt.Errorf("--schema-only and --readme-only are mutually exclusive")
+	}
 	cfg.SchemaOnly = schemaOnly
 	cfg.ReadmeOnly = readmeOnly
 

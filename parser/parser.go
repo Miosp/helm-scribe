@@ -131,6 +131,9 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 		if n.Type == "null" && ann.Type == "" {
 			*warnings = append(*warnings, fmt.Sprintf("key %q is null with no @type; schema will accept any value", n.Path))
 		}
+		if n.Type == "array" && ann.Type == "" && len(ann.Items) == 0 {
+			*warnings = append(*warnings, fmt.Sprintf("key %q is an array with no @type; schema will not validate items", n.Path))
+		}
 
 		nodes = append(nodes, n)
 	}

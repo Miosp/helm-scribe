@@ -27,3 +27,4 @@ go.work.sum
 # dotfiles and dotdirs
 .*
 !.gitignore
+helm-scribe
