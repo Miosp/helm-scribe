@@ -102,7 +102,6 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 	}
 }
 
-
 func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 	result := map[string]interface{}{
 		"type": "object",

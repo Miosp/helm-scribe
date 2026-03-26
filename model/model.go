@@ -13,11 +13,11 @@ type ValueNode struct {
 	Description string
 	Type        string // inferred from value
 	Default     interface{}
-	Nullable bool
+	Nullable    bool
 	// ItemNullable indicates array items are nullable (e.g. string?[]). Only meaningful when Type ends in "[]".
 	ItemNullable bool
-	Section     string
-	Skip        bool
-	Children    []*ValueNode
-	Items       []*ItemDef
+	Section      string
+	Skip         bool
+	Children     []*ValueNode
+	Items        []*ItemDef
 }

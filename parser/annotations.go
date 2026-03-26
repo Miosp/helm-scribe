@@ -8,9 +8,9 @@ import (
 
 // Annotations holds the parsed result of a comment block.
 type Annotations struct {
-	Description string
-	Section     string
-	Skip        bool
+	Description  string
+	Section      string
+	Skip         bool
 	Type         string
 	Nullable     bool
 	ItemNullable bool
