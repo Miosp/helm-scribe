@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -389,6 +390,62 @@ func TestEndToEnd_RunReadmeOnly(t *testing.T) {
 	updated, _ := os.ReadFile(tmpDir + "/README.md")
 	if !strings.Contains(string(updated), "`replicaCount`") {
 		t.Error("README should be updated with --readme-only")
+	}
+}
+
+func TestStrictWithWarnings(t *testing.T) {
+	tmpDir := t.TempDir()
+	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
+	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
+	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
+	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+
+	cfg := config.DefaultConfig()
+	cfg.Strict = true
+
+	err := run(cfg, tmpDir+"/values.yaml", tmpDir+"/README.md", tmpDir+"/values.schema.json")
+
+	var we *WarningsError
+	if !errors.As(err, &we) {
+		t.Fatalf("expected WarningsError, got: %v", err)
+	}
+	if we.Count < 1 {
+		t.Errorf("expected at least 1 warning, got %d", we.Count)
+	}
+
+	// Files should still be written despite strict warnings
+	if _, err := os.ReadFile(tmpDir + "/values.schema.json"); err != nil {
+		t.Error("schema file should still be written in strict mode")
+	}
+}
+
+func TestStrictWithoutWarnings(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.WriteFile(tmpDir+"/values.yaml", []byte("# Name\nname: test\n"), 0644)
+
+	cfg := config.DefaultConfig()
+	cfg.Strict = true
+	cfg.SchemaOnly = true
+
+	err := run(cfg, tmpDir+"/values.yaml", tmpDir+"/README.md", tmpDir+"/values.schema.json")
+	if err != nil {
+		t.Fatalf("expected no error with strict + no warnings, got: %v", err)
+	}
+}
+
+func TestNonStrictWithWarnings(t *testing.T) {
+	tmpDir := t.TempDir()
+	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
+	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
+	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
+	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+
+	cfg := config.DefaultConfig()
+	// cfg.Strict is false by default
+
+	err := run(cfg, tmpDir+"/values.yaml", tmpDir+"/README.md", tmpDir+"/values.schema.json")
+	if err != nil {
+		t.Fatalf("expected nil error without strict mode, got: %v", err)
 	}
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,14 @@ import (
 	"github.com/miosp/helm-scribe/schema"
 	"github.com/spf13/cobra"
 )
+
+type WarningsError struct {
+	Count int
+}
+
+func (e *WarningsError) Error() string {
+	return fmt.Sprintf("%d warning(s) found", e.Count)
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "helm-scribe [chart-directory]",
@@ -32,10 +41,18 @@ func init() {
 	f.StringP("schema-file", "s", "", "Path to schema output file")
 	f.Bool("schema-only", false, "Only generate schema, skip README")
 	f.Bool("readme-only", false, "Only generate README, skip schema")
+	f.Bool("strict", false, "Treat warnings as errors (exit code 2)")
+	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 }
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
+		var we *WarningsError
+		if errors.As(err, &we) {
+			os.Exit(2)
+		}
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -86,6 +103,10 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 	cfg.SchemaOnly = schemaOnly
 	cfg.ReadmeOnly = readmeOnly
+	strict, _ := f.GetBool("strict")
+	if strict {
+		cfg.Strict = true
+	}
 
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
 	readmePath := filepath.Join(chartDir, cfg.ReadmeFile)
@@ -107,6 +128,9 @@ func run(cfg config.Config, valuesPath, readmePath, schemaPath string) error {
 
 	for _, w := range warnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
+	if len(warnings) > 0 {
+		fmt.Fprintf(os.Stderr, "%d warning(s) found\n", len(warnings))
 	}
 
 	if !cfg.ReadmeOnly {
@@ -146,6 +170,10 @@ func run(cfg config.Config, valuesPath, readmePath, schemaPath string) error {
 			}
 			fmt.Fprintf(os.Stderr, "Updated %s\n", readmePath)
 		}
+	}
+
+	if cfg.Strict && len(warnings) > 0 {
+		return &WarningsError{Count: len(warnings)}
 	}
 
 	return nil
