@@ -1117,6 +1117,66 @@ func TestGenerate_Pattern(t *testing.T) {
 	}
 }
 
+func TestGenerate_Deprecated(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "old", Path: "old", Type: "boolean", Default: true,
+			Deprecated: "Use newSetting instead"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "old")
+	if p["deprecated"] != true {
+		t.Errorf("deprecated: got %v", p["deprecated"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_Example(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "",
+			Example: "my-custom-app"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "name")
+	examples, ok := p["examples"].([]interface{})
+	if !ok || len(examples) != 1 || examples[0] != "my-custom-app" {
+		t.Errorf("examples: got %v", p["examples"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_ExampleInteger(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "port", Path: "port", Type: "integer", Default: 80,
+			Example: "8080"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "port")
+	examples := p["examples"].([]interface{})
+	if examples[0] != float64(8080) {
+		t.Errorf("example: got %v (%T), want numeric 8080", examples[0], examples[0])
+	}
+}
+
 func TestGenerate_NullableObjectNoChildren(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "extra", Path: "extra", Type: "object", Nullable: true, Default: nil},
