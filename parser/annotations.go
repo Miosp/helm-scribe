@@ -14,7 +14,14 @@ type Annotations struct {
 	Type         string
 	Nullable     bool
 	ItemNullable bool
-	Items        []*model.ItemDef
+	Items           []*model.ItemDef
+	Enum            []string
+	Min             *float64
+	Max             *float64
+	Deprecated      string
+	DefaultOverride *string
+	Example         string
+	Pattern         string
 }
 
 // ParseAnnotations extracts description text and tags from a raw HeadComment.
