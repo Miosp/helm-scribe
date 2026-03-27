@@ -143,6 +143,9 @@ func parseItemDef(raw string) (*model.ItemDef, bool) {
 	}, true
 }
 
+// parseEnum parses a bracketed, comma-separated list like [a, b, c].
+// Limitation: values containing commas are not supported, even when quoted.
+// For example, ["a,b", "c"] is incorrectly split into 3 values instead of 2.
 func parseEnum(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if !strings.HasPrefix(raw, "[") || !strings.HasSuffix(raw, "]") {

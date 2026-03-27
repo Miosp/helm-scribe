@@ -313,6 +313,42 @@ func TestGenerate_DefaultOverride(t *testing.T) {
 	}
 }
 
+func TestGenerate_Phase2AnnotationsNotRendered(t *testing.T) {
+	min, max := float64(1), float64(100)
+	nodes := []*model.ValueNode{
+		{Path: "policy", Description: "Pull policy", Type: "string", Default: "Always",
+			Enum: []string{"Always", "IfNotPresent", "Never"}, Section: "S"},
+		{Path: "port", Description: "Port", Type: "integer", Default: 80,
+			Min: &min, Max: &max, Section: "S"},
+		{Path: "name", Description: "Name", Type: "string", Default: "app",
+			Pattern: "^[a-z]+$", Section: "S"},
+		{Path: "display", Description: "Display", Type: "string", Default: "",
+			Example: "my-app", Section: "S"},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+
+	// These annotations should NOT appear in the README table
+	if strings.Contains(result, "Always, IfNotPresent") || strings.Contains(result, "@enum") {
+		t.Errorf("enum values should not be rendered in README table")
+	}
+	if strings.Contains(result, "@min") || strings.Contains(result, "@max") {
+		t.Errorf("min/max annotations should not be rendered in README table")
+	}
+	if strings.Contains(result, "@pattern") || strings.Contains(result, "^[a-z]+$") {
+		t.Errorf("pattern should not be rendered in README table")
+	}
+	if strings.Contains(result, "@example") || strings.Contains(result, "my-app") {
+		t.Errorf("example should not be rendered in README table")
+	}
+
+	// But the descriptions and defaults should still be there
+	assertRowContains(t, result, "`policy`", "Pull policy", "`\"Always\"`")
+	assertRowContains(t, result, "`port`", "Port", "`80`")
+	assertRowContains(t, result, "`name`", "Name", "`\"app\"`")
+	assertRowContains(t, result, "`display`", "Display")
+}
+
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
 	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
 	_, err := InsertIntoReadme(existing, "new")
