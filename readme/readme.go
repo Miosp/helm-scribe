@@ -14,6 +14,7 @@ type Options struct {
 	TruncateLength int
 	HeadingLevel   int
 	NoPrettyPrint  bool
+	TypeColumn     bool
 }
 
 func DefaultOptions() Options {
@@ -21,7 +22,7 @@ func DefaultOptions() Options {
 }
 
 type tableRow struct {
-	key, description, def string
+	key, typ, description, def string
 }
 
 func Generate(nodes []*model.ValueNode, opts Options) string {
@@ -40,37 +41,56 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 
 		var rows []tableRow
 		for _, n := range sec.nodes {
+			typStr := ""
+			if opts.TypeColumn {
+				typStr = n.Type
+				if n.Nullable {
+					typStr += "?"
+				}
+			}
 			rows = append(rows, tableRow{
 				key:         fmt.Sprintf("`%s`", n.Path),
+				typ:         fmt.Sprintf("`%s`", typStr),
 				description: n.Description,
 				def:         formatDefault(n.Default, opts.TruncateLength),
 			})
 		}
 
-		writeTable(&b, rows, opts.NoPrettyPrint)
+		writeTable(&b, rows, opts)
 		b.WriteByte('\n')
 	}
 
 	return b.String()
 }
 
-func writeTable(b *strings.Builder, rows []tableRow, noPretty bool) {
-	headers := tableRow{key: "Key", description: "Description", def: "Default"}
+func writeTable(b *strings.Builder, rows []tableRow, opts Options) {
+	hasType := opts.TypeColumn
+	headers := tableRow{key: "Key", typ: "Type", description: "Description", def: "Default"}
 
-	if noPretty {
-		fmt.Fprintf(b, "| %s | %s | %s |\n", headers.key, headers.description, headers.def)
-		b.WriteString("|-----|-------------|--------|\n")
-		for _, r := range rows {
-			fmt.Fprintf(b, "| %s | %s | %s |\n", r.key, r.description, r.def)
+	if opts.NoPrettyPrint {
+		if hasType {
+			fmt.Fprintf(b, "| %s | %s | %s | %s |\n", headers.key, headers.typ, headers.description, headers.def)
+			b.WriteString("|-----|------|-------------|--------|\n")
+			for _, r := range rows {
+				fmt.Fprintf(b, "| %s | %s | %s | %s |\n", r.key, r.typ, r.description, r.def)
+			}
+		} else {
+			fmt.Fprintf(b, "| %s | %s | %s |\n", headers.key, headers.description, headers.def)
+			b.WriteString("|-----|-------------|--------|\n")
+			for _, r := range rows {
+				fmt.Fprintf(b, "| %s | %s | %s |\n", r.key, r.description, r.def)
+			}
 		}
 		return
 	}
 
-	// Calculate max widths
-	kw, dw, fw := len(headers.key), len(headers.description), len(headers.def)
+	kw, tw, dw, fw := len(headers.key), len(headers.typ), len(headers.description), len(headers.def)
 	for _, r := range rows {
 		if len(r.key) > kw {
 			kw = len(r.key)
+		}
+		if len(r.typ) > tw {
+			tw = len(r.typ)
 		}
 		if len(r.description) > dw {
 			dw = len(r.description)
@@ -80,11 +100,20 @@ func writeTable(b *strings.Builder, rows []tableRow, noPretty bool) {
 		}
 	}
 
-	fmtStr := fmt.Sprintf("| %%-%ds | %%-%ds | %%-%ds |\n", kw, dw, fw)
-	fmt.Fprintf(b, fmtStr, headers.key, headers.description, headers.def)
-	fmt.Fprintf(b, "|-%s-|-%s-|-%s-|\n", strings.Repeat("-", kw), strings.Repeat("-", dw), strings.Repeat("-", fw))
-	for _, r := range rows {
-		fmt.Fprintf(b, fmtStr, r.key, r.description, r.def)
+	if hasType {
+		fmtStr := fmt.Sprintf("| %%-%ds | %%-%ds | %%-%ds | %%-%ds |\n", kw, tw, dw, fw)
+		fmt.Fprintf(b, fmtStr, headers.key, headers.typ, headers.description, headers.def)
+		fmt.Fprintf(b, "|-%s-|-%s-|-%s-|-%s-|\n", strings.Repeat("-", kw), strings.Repeat("-", tw), strings.Repeat("-", dw), strings.Repeat("-", fw))
+		for _, r := range rows {
+			fmt.Fprintf(b, fmtStr, r.key, r.typ, r.description, r.def)
+		}
+	} else {
+		fmtStr := fmt.Sprintf("| %%-%ds | %%-%ds | %%-%ds |\n", kw, dw, fw)
+		fmt.Fprintf(b, fmtStr, headers.key, headers.description, headers.def)
+		fmt.Fprintf(b, "|-%s-|-%s-|-%s-|\n", strings.Repeat("-", kw), strings.Repeat("-", dw), strings.Repeat("-", fw))
+		for _, r := range rows {
+			fmt.Fprintf(b, fmtStr, r.key, r.description, r.def)
+		}
 	}
 }
 

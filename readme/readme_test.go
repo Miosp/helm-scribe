@@ -254,6 +254,41 @@ func TestGenerate_NoPrettyPrint(t *testing.T) {
 	})
 }
 
+func TestGenerate_TypeColumn(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
+		{Path: "port", Description: "Port", Type: "integer", Default: 80, Section: "S"},
+		{Path: "label", Description: "Label", Type: "string", Nullable: true, Default: nil, Section: "S"},
+		{Path: "tags", Description: "Tags", Type: "string[]", Default: []interface{}{}, Section: "S"},
+	}
+
+	opts := DefaultOptions()
+	opts.TypeColumn = true
+	result := Generate(nodes, opts)
+
+	if !strings.Contains(result, "| Type ") {
+		t.Errorf("missing Type column header, got:\n%s", result)
+	}
+
+	assertRowContains(t, result, "`name`", "`string`", "App name")
+	assertRowContains(t, result, "`port`", "`integer`", "Port")
+	assertRowContains(t, result, "`label`", "`string?`", "Label")
+	assertRowContains(t, result, "`tags`", "`string[]`", "Tags")
+}
+
+func TestGenerate_TypeColumnDisabled(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
+	}
+
+	opts := DefaultOptions()
+	result := Generate(nodes, opts)
+
+	if strings.Contains(result, "| Type ") {
+		t.Error("Type column should not appear when disabled")
+	}
+}
+
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
 	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
 	_, err := InsertIntoReadme(existing, "new")

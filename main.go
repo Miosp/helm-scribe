@@ -42,6 +42,7 @@ func init() {
 	f.Bool("schema-only", false, "Only generate schema, skip README")
 	f.Bool("readme-only", false, "Only generate README, skip schema")
 	f.Bool("strict", false, "Treat warnings as errors (exit code 2)")
+	f.Bool("type-column", false, "Show type column in README table")
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
 }
@@ -98,6 +99,10 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 	cfg.DryRun = dryRun
 	cfg.NoPrettyPrint = noPretty
+	typeColumn, _ := f.GetBool("type-column")
+	if typeColumn {
+		cfg.TypeColumn = true
+	}
 	if schemaOnly && readmeOnly {
 		return fmt.Errorf("--schema-only and --readme-only are mutually exclusive")
 	}
@@ -149,7 +154,7 @@ func run(cfg config.Config, valuesPath, readmePath, schemaPath string) error {
 	}
 
 	if !cfg.SchemaOnly {
-		opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint}
+		opts := readme.Options{TruncateLength: cfg.TruncateLength, HeadingLevel: cfg.HeadingLevel, NoPrettyPrint: cfg.NoPrettyPrint, TypeColumn: cfg.TypeColumn}
 		table := readme.Generate(nodes, opts)
 
 		if cfg.DryRun {
