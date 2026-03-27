@@ -51,14 +51,14 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 			}
 			typStr := ""
 			if opts.TypeColumn {
-				typStr = n.Type
+				typStr = fmt.Sprintf("`%s`", n.Type)
 				if n.Nullable {
-					typStr += "?"
+					typStr = fmt.Sprintf("`%s?`", n.Type)
 				}
 			}
 			rows = append(rows, tableRow{
 				key:         fmt.Sprintf("`%s`", n.Path),
-				typ:         fmt.Sprintf("`%s`", typStr),
+				typ:         typStr,
 				description: desc,
 				def:         defStr,
 			})
