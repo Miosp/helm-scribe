@@ -41,6 +41,14 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 
 		var rows []tableRow
 		for _, n := range sec.nodes {
+			desc := n.Description
+			if n.Deprecated != "" {
+				desc = "(DEPRECATED) " + desc
+			}
+			defStr := formatDefault(n.Default, opts.TruncateLength)
+			if n.DefaultOverride != nil {
+				defStr = fmt.Sprintf("`%s`", *n.DefaultOverride)
+			}
 			typStr := ""
 			if opts.TypeColumn {
 				typStr = n.Type
@@ -51,8 +59,8 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 			rows = append(rows, tableRow{
 				key:         fmt.Sprintf("`%s`", n.Path),
 				typ:         fmt.Sprintf("`%s`", typStr),
-				description: n.Description,
-				def:         formatDefault(n.Default, opts.TruncateLength),
+				description: desc,
+				def:         defStr,
 			})
 		}
 

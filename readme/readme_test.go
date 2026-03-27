@@ -289,6 +289,30 @@ func TestGenerate_TypeColumnDisabled(t *testing.T) {
 	}
 }
 
+func TestGenerate_DeprecatedPrefix(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "old", Description: "Old setting", Type: "boolean", Default: true, Section: "S",
+			Deprecated: "Use newSetting instead"},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, "`old`", "(DEPRECATED) Old setting")
+}
+
+func TestGenerate_DefaultOverride(t *testing.T) {
+	override := "See values.yaml"
+	nodes := []*model.ValueNode{
+		{Path: "config", Description: "Config", Type: "object", Default: nil, Section: "S",
+			DefaultOverride: &override},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, "`config`", "`See values.yaml`")
+	if strings.Contains(result, "`null`") {
+		t.Errorf("default override should replace null display, got:\n%s", result)
+	}
+}
+
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
 	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
 	_, err := InsertIntoReadme(existing, "new")
