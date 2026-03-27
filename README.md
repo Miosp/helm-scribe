@@ -55,6 +55,8 @@ helm-scribe --readme-only
 | `--heading-level`   |       | Heading level for section headers (1-6)        | `2`                    |
 | `--schema-only`     |       | Only generate schema, skip README              | `false`                |
 | `--readme-only`     |       | Only generate README, skip schema              | `false`                |
+| `--type-column`     |       | Show type column in README table               | `false`                |
+| `--strict`          |       | Treat warnings as errors (exit code 2)         | `false`                |
 
 ## Annotating values.yaml
 
@@ -74,9 +76,15 @@ image:
   repository: nginx
   # Image pull policy
   # @type string
+  # @enum [Always, IfNotPresent, Never]
   pullPolicy: IfNotPresent
 
 # @section Network parameters
+
+# Service port
+# @min 1
+# @max 65535
+port: 80
 
 # Optional service description
 # @type string?
@@ -93,6 +101,15 @@ tags: []
 # @item paths[].pathType: string
 hosts: []
 
+# App name
+# @pattern ^[a-z][a-z0-9-]*$
+# @example my-custom-app
+appName: my-app
+
+# Old setting
+# @deprecated Use newSetting instead
+oldSetting: true
+
 # @section Internal
 
 # Internal setting, not user-facing
@@ -107,6 +124,12 @@ reconcileInterval: 30s
 - **`@skip`**: Excludes the parameter from generated output.
 - **`@type <type>`**: Overrides the inferred type. Useful when the YAML value doesn't reflect the intended type (e.g., a null value that should be a string).
 - **`@item <path>: <type>`**: Defines the shape of items in an object array. Implies `object[]` type if no `@type` is set.
+- **`@enum [val1, val2, ...]`**: Restricts the value to one of the listed options. Values are type-converted to match the field type (e.g., integers for integer fields). Quoted values are supported: `@enum ["val 1", "val 2"]`.
+- **`@min <n>` / `@max <n>`**: Sets minimum/maximum constraints for numeric fields. Maps to `minimum`/`maximum` in JSON Schema.
+- **`@pattern <regex>`**: Validates string values against a regular expression. Maps to `pattern` in JSON Schema.
+- **`@default <value>`**: Overrides the displayed default value in the README table. Does not affect the schema (which uses the actual YAML value).
+- **`@deprecated [message]`**: Marks a parameter as deprecated. Adds `(DEPRECATED)` prefix in the README table and sets `"deprecated": true` in the schema. The message is optional.
+- **`@example <value>`**: Provides an example value. Maps to `"examples": [...]` in the schema.
 
 ### Type system
 
@@ -175,9 +198,21 @@ headingLevel: 2
 valuesFile: values.yaml
 readmeFile: README.md
 schemaFile: values.schema.json
+typeColumn: false
+strict: false
 ```
 
 CLI flags override config file values.
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0    | Success |
+| 1    | Error (parse failure, missing files, etc.) |
+| 2    | Warnings present and `--strict` enabled |
+
+Warnings are always printed to stderr. With `--strict`, the tool still generates all output files before exiting with code 2, so CI pipelines can inspect the results.
 
 ## Output example
 
@@ -186,16 +221,32 @@ Given the annotated `values.yaml` above, helm-scribe generates a README table:
 ```markdown
 ## Common parameters
 
-| Key              | Description                           | Default |
-|------------------|---------------------------------------|---------|
-| `replicaCount`   | Number of replicas for the deployment | `1`     |
+| Key            | Description                           | Default |
+|----------------|---------------------------------------|---------|
+| `replicaCount` | Number of replicas for the deployment | `1`     |
 
 ## Image parameters
 
-| Key                | Description        | Default         |
-|--------------------|--------------------|-----------------|
-| `image.repository` | Image repository   | `"nginx"`       |
-| `image.pullPolicy` | Image pull policy  | `"IfNotPresent"`|
+| Key                | Description       | Default          |
+|--------------------|-------------------|------------------|
+| `image.repository` | Image repository  | `"nginx"`        |
+| `image.pullPolicy` | Image pull policy | `"IfNotPresent"` |
+
+## Network parameters
+
+| Key                  | Description                | Default          |
+|----------------------|----------------------------|------------------|
+| `port`               | Service port               | `80`             |
+| `appName`            | App name                   | `"my-app"`       |
+| `oldSetting`         | (DEPRECATED) Old setting   | `true`           |
 ```
 
-And a `values.schema.json` with type definitions, nullable types, array item schemas, and required field constraints.
+With `--type-column`, an additional column is included:
+
+```markdown
+| Key            | Type      | Description                           | Default |
+|----------------|-----------|---------------------------------------|---------|
+| `replicaCount` | `integer` | Number of replicas for the deployment | `1`     |
+```
+
+And a `values.schema.json` with type definitions, nullable types, array item schemas, required field constraints, enum/min/max/pattern validation, and deprecation markers.

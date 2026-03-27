@@ -195,7 +195,9 @@ func TestEndToEnd_SchemaIsValidDraft07(t *testing.T) {
 		"optionalDescription": null,
 		"tags": ["production", "v2"],
 		"hosts": [{"host": "example.com", "paths": [{"path": "/api"}]}],
-		"unknownField": "anything-goes"
+		"unknownField": "anything-goes",
+		"pullPolicy": "Always", "validatedPort": 8080, "appName": "my-app",
+		"oldSetting": true, "displayName": "hello", "extraConfig": {}
 	}`)
 	if err := sch.Validate(valid); err != nil {
 		t.Errorf("valid document rejected: %v", err)
@@ -223,13 +225,13 @@ func TestEndToEnd_SchemaRejectsInvalidTypes(t *testing.T) {
 		name string
 		doc  string
 	}{
-		{"string where integer expected", `{"replicaCount": "three", "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"integer where string expected", `{"replicaCount": 1, "fullnameOverride": 123, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"string where boolean expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": "yes", "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"integer where number expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": "high", "tags": [], "hosts": []}`},
-		{"wrong array item type", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [123], "hosts": []}`},
-		{"null on non-nullable string", `{"replicaCount": 1, "fullnameOverride": null, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": []}`},
-		{"wrong type in @item host", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [{"host": 999}]}`},
+		{"string where integer expected", `{"replicaCount": "three", "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"integer where string expected", `{"replicaCount": 1, "fullnameOverride": 123, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"string where boolean expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": "yes", "cpuLimit": 0.5, "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"integer where number expected", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": "high", "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"wrong array item type", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [123], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"null on non-nullable string", `{"replicaCount": 1, "fullnameOverride": null, "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
+		{"wrong type in @item host", `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"}, "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [{"host": 999}], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {}}`},
 	}
 
 	for _, tt := range tests {
@@ -259,7 +261,7 @@ func TestEndToEnd_SchemaNullableAcceptsNull(t *testing.T) {
 
 	sch := compileE2ESchema(t, schemaBytes)
 
-	base := `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "nginx", "tag": "latest"}, "service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [],`
+	base := `{"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "nginx", "tag": "latest"}, "service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5, "tags": [], "hosts": [], "pullPolicy": "Always", "validatedPort": 80, "appName": "app", "oldSetting": true, "displayName": "", "extraConfig": {},`
 
 	// optionalDescription is string? — should accept both string and null
 	withString := unmarshalE2E(t, base+`"optionalDescription": "hello"}`)
@@ -446,6 +448,151 @@ func TestNonStrictWithWarnings(t *testing.T) {
 	err := run(cfg, tmpDir+"/values.yaml", tmpDir+"/README.md", tmpDir+"/values.schema.json")
 	if err != nil {
 		t.Fatalf("expected nil error without strict mode, got: %v", err)
+	}
+}
+
+func TestEndToEnd_Phase2Schema(t *testing.T) {
+	data, err := os.ReadFile("testdata/e2e/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, _, err := parser.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schemaBytes, err := schema.Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var s map[string]interface{}
+	if err := json.Unmarshal(schemaBytes, &s); err != nil {
+		t.Fatal(err)
+	}
+
+	props := s["properties"].(map[string]interface{})
+
+	// @enum
+	pp := props["pullPolicy"].(map[string]interface{})
+	enumVal, ok := pp["enum"].([]interface{})
+	if !ok || len(enumVal) != 3 {
+		t.Errorf("pullPolicy enum: got %v", pp["enum"])
+	}
+
+	// @min/@max
+	vp := props["validatedPort"].(map[string]interface{})
+	if vp["minimum"] != float64(1) {
+		t.Errorf("validatedPort minimum: got %v", vp["minimum"])
+	}
+	if vp["maximum"] != float64(65535) {
+		t.Errorf("validatedPort maximum: got %v", vp["maximum"])
+	}
+
+	// @pattern
+	an := props["appName"].(map[string]interface{})
+	if an["pattern"] != "^[a-z][a-z0-9-]*$" {
+		t.Errorf("appName pattern: got %v", an["pattern"])
+	}
+
+	// @deprecated
+	os_ := props["oldSetting"].(map[string]interface{})
+	if os_["deprecated"] != true {
+		t.Errorf("oldSetting deprecated: got %v", os_["deprecated"])
+	}
+
+	// @example
+	dn := props["displayName"].(map[string]interface{})
+	examples, ok := dn["examples"].([]interface{})
+	if !ok || len(examples) != 1 || examples[0] != "my-custom-app" {
+		t.Errorf("displayName examples: got %v", dn["examples"])
+	}
+
+	compileE2ESchema(t, schemaBytes)
+}
+
+func TestEndToEnd_Phase2SchemaValidation(t *testing.T) {
+	data, err := os.ReadFile("testdata/e2e/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, _, err := parser.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schemaBytes, err := schema.Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sch := compileE2ESchema(t, schemaBytes)
+
+	valid := unmarshalE2E(t, `{
+		"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"},
+		"service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5,
+		"optionalDescription": null, "tags": [], "hosts": [], "unknownField": "x",
+		"pullPolicy": "Always", "validatedPort": 8080, "appName": "my-app",
+		"oldSetting": true, "displayName": "hello", "extraConfig": {}
+	}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid doc rejected: %v", err)
+	}
+
+	badEnum := unmarshalE2E(t, `{
+		"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"},
+		"service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5,
+		"tags": [], "hosts": [],
+		"pullPolicy": "InvalidPolicy", "validatedPort": 80, "appName": "app"
+	}`)
+	if err := sch.Validate(badEnum); err == nil {
+		t.Error("invalid enum value should be rejected")
+	}
+
+	badPort := unmarshalE2E(t, `{
+		"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"},
+		"service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5,
+		"tags": [], "hosts": [],
+		"pullPolicy": "Always", "validatedPort": 0, "appName": "app"
+	}`)
+	if err := sch.Validate(badPort); err == nil {
+		t.Error("port below minimum should be rejected")
+	}
+
+	badName := unmarshalE2E(t, `{
+		"replicaCount": 1, "fullnameOverride": "", "image": {"repository": "x", "tag": "x"},
+		"service_type": "ClusterIP", "port": 80, "debug": false, "cpuLimit": 0.5,
+		"tags": [], "hosts": [],
+		"pullPolicy": "Always", "validatedPort": 80, "appName": "INVALID_NAME!"
+	}`)
+	if err := sch.Validate(badName); err == nil {
+		t.Error("name violating pattern should be rejected")
+	}
+}
+
+func TestEndToEnd_Phase2Readme(t *testing.T) {
+	data, err := os.ReadFile("testdata/e2e/values.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, _, err := parser.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	opts := readme.Options{TruncateLength: 80}
+	table := readme.Generate(nodes, opts)
+
+	if !strings.Contains(table, "## Validation parameters") {
+		t.Error("missing Validation parameters section")
+	}
+
+	if !strings.Contains(table, "(DEPRECATED)") {
+		t.Error("missing DEPRECATED prefix for oldSetting")
+	}
+
+	if !strings.Contains(table, "`See values.yaml`") {
+		t.Error("missing default override for extraConfig")
 	}
 }
 

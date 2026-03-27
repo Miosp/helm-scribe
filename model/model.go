@@ -19,5 +19,12 @@ type ValueNode struct {
 	Section      string
 	Skip         bool
 	Children     []*ValueNode
-	Items        []*ItemDef
+	Items           []*ItemDef
+	Enum            []string
+	Min             *float64
+	Max             *float64
+	Deprecated      string
+	DefaultOverride *string
+	Example         string
+	Pattern         string
 }

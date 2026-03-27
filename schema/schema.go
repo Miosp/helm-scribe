@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/miosp/helm-scribe/model"
@@ -87,6 +88,25 @@ func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 		setType(s, baseType, n.Nullable)
 	}
 
+	if len(n.Enum) > 0 {
+		s["enum"] = convertEnum(n.Enum, baseType)
+	}
+	if n.Min != nil {
+		s["minimum"] = *n.Min
+	}
+	if n.Max != nil {
+		s["maximum"] = *n.Max
+	}
+	if n.Pattern != "" {
+		s["pattern"] = n.Pattern
+	}
+	if n.Deprecated != "" {
+		s["deprecated"] = true
+	}
+	if n.Example != "" {
+		s["examples"] = []interface{}{convertValue(n.Example, baseType)}
+	}
+
 	if n.Default != nil {
 		s["default"] = n.Default
 	}
@@ -100,6 +120,32 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 	} else {
 		s["type"] = typ
 	}
+}
+
+func convertEnum(values []string, baseType string) []interface{} {
+	result := make([]interface{}, len(values))
+	for i, v := range values {
+		result[i] = convertValue(v, baseType)
+	}
+	return result
+}
+
+func convertValue(val, baseType string) interface{} {
+	switch baseType {
+	case "integer":
+		if n, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return n
+		}
+	case "number":
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			return f
+		}
+	case "boolean":
+		if b, err := strconv.ParseBool(val); err == nil {
+			return b
+		}
+	}
+	return val
 }
 
 func buildItemSchema(items []*model.ItemDef) map[string]interface{} {

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/miosp/helm-scribe/model"
@@ -14,7 +15,14 @@ type Annotations struct {
 	Type         string
 	Nullable     bool
 	ItemNullable bool
-	Items        []*model.ItemDef
+	Items           []*model.ItemDef
+	Enum            []string
+	Min             *float64
+	Max             *float64
+	Deprecated      string
+	DefaultOverride *string
+	Example         string
+	Pattern         string
 }
 
 // ParseAnnotations extracts description text and tags from a raw HeadComment.
@@ -46,6 +54,43 @@ func ParseAnnotations(raw string) Annotations {
 			if item, ok := parseItemDef(strings.TrimPrefix(line, "@item ")); ok {
 				ann.Items = append(ann.Items, item)
 			}
+			continue
+		}
+		if strings.HasPrefix(line, "@enum ") {
+			ann.Enum = parseEnum(strings.TrimPrefix(line, "@enum "))
+			continue
+		}
+		if strings.HasPrefix(line, "@min ") {
+			if v, err := strconv.ParseFloat(strings.TrimPrefix(line, "@min "), 64); err == nil {
+				ann.Min = &v
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "@max ") {
+			if v, err := strconv.ParseFloat(strings.TrimPrefix(line, "@max "), 64); err == nil {
+				ann.Max = &v
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "@default ") {
+			val := strings.TrimPrefix(line, "@default ")
+			ann.DefaultOverride = &val
+			continue
+		}
+		if line == "@deprecated" {
+			ann.Deprecated = "deprecated"
+			continue
+		}
+		if strings.HasPrefix(line, "@deprecated ") {
+			ann.Deprecated = strings.TrimPrefix(line, "@deprecated ")
+			continue
+		}
+		if strings.HasPrefix(line, "@example ") {
+			ann.Example = strings.TrimPrefix(line, "@example ")
+			continue
+		}
+		if strings.HasPrefix(line, "@pattern ") {
+			ann.Pattern = strings.TrimPrefix(line, "@pattern ")
 			continue
 		}
 
@@ -96,6 +141,28 @@ func parseItemDef(raw string) (*model.ItemDef, bool) {
 		Path: strings.TrimSpace(parts[0]),
 		Type: strings.TrimSpace(parts[1]),
 	}, true
+}
+
+// parseEnum parses a bracketed, comma-separated list like [a, b, c].
+// Limitation: values containing commas are not supported, even when quoted.
+// For example, ["a,b", "c"] is incorrectly split into 3 values instead of 2.
+func parseEnum(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "[") || !strings.HasSuffix(raw, "]") {
+		return nil
+	}
+	raw = raw[1 : len(raw)-1]
+	var values []string
+	for _, v := range strings.Split(raw, ",") {
+		v = strings.TrimSpace(v)
+		if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
+			v = v[1 : len(v)-1]
+		}
+		if v != "" {
+			values = append(values, v)
+		}
+	}
+	return values
 }
 
 func buildDescription(parts []string) string {

@@ -47,6 +47,34 @@ hosts: []
 # Untyped null value
 unknownField:
 
+# @section Validation parameters
+
+# Image pull policy
+# @type string
+# @enum [Always, IfNotPresent, Never]
+pullPolicy: IfNotPresent
+
+# Validated port number
+# @min 1
+# @max 65535
+validatedPort: 8080
+
+# Pattern-validated name
+# @pattern ^[a-z][a-z0-9-]*$
+appName: my-app
+
+# Old setting, no longer used
+# @deprecated Use newSetting instead
+oldSetting: true
+
+# Display name
+# @example my-custom-app
+displayName: ""
+
+# Complex default
+# @default See values.yaml
+extraConfig: {}
+
 # @section Internal
 
 # Internal setting, not user-facing
