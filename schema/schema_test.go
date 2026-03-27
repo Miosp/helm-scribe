@@ -991,6 +991,132 @@ func TestGenerate_ItemWithNullableArray(t *testing.T) {
 	}
 }
 
+func TestGenerate_Enum(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "policy", Path: "policy", Type: "string", Default: "Always",
+			Enum: []string{"Always", "IfNotPresent", "Never"}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "policy")
+	enumVal, ok := p["enum"].([]interface{})
+	if !ok {
+		t.Fatalf("enum missing, got %v", p["enum"])
+	}
+	if len(enumVal) != 3 || enumVal[0] != "Always" {
+		t.Errorf("enum: got %v", enumVal)
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"policy": "IfNotPresent"}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid enum value rejected: %v", err)
+	}
+
+	invalid := unmarshalDoc(t, `{"policy": "Unknown"}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("invalid enum value should be rejected")
+	}
+}
+
+func TestGenerate_EnumInteger(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "level", Path: "level", Type: "integer", Default: 1,
+			Enum: []string{"1", "2", "3"}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "level")
+	enumVal := p["enum"].([]interface{})
+	if enumVal[0] != float64(1) {
+		t.Errorf("enum[0]: got %v (%T), want numeric 1", enumVal[0], enumVal[0])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"level": 2}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid enum rejected: %v", err)
+	}
+	invalid := unmarshalDoc(t, `{"level": 5}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("out-of-enum value should be rejected")
+	}
+}
+
+func TestGenerate_MinMax(t *testing.T) {
+	min, max := float64(1), float64(65535)
+	nodes := []*model.ValueNode{
+		{Key: "port", Path: "port", Type: "integer", Default: 80,
+			Min: &min, Max: &max},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "port")
+	if p["minimum"] != float64(1) {
+		t.Errorf("minimum: got %v", p["minimum"])
+	}
+	if p["maximum"] != float64(65535) {
+		t.Errorf("maximum: got %v", p["maximum"])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"port": 8080}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid port rejected: %v", err)
+	}
+	tooLow := unmarshalDoc(t, `{"port": 0}`)
+	if err := sch.Validate(tooLow); err == nil {
+		t.Error("port below minimum should be rejected")
+	}
+	tooHigh := unmarshalDoc(t, `{"port": 70000}`)
+	if err := sch.Validate(tooHigh); err == nil {
+		t.Error("port above maximum should be rejected")
+	}
+}
+
+func TestGenerate_Pattern(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "my-app",
+			Pattern: "^[a-z][a-z0-9-]*$"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "name")
+	if p["pattern"] != "^[a-z][a-z0-9-]*$" {
+		t.Errorf("pattern: got %v", p["pattern"])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"name": "my-app"}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid name rejected: %v", err)
+	}
+	invalid := unmarshalDoc(t, `{"name": "My_App!"}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("invalid name should be rejected")
+	}
+}
+
 func TestGenerate_NullableObjectNoChildren(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "extra", Path: "extra", Type: "object", Nullable: true, Default: nil},

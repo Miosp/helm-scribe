@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/miosp/helm-scribe/model"
@@ -87,6 +88,19 @@ func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 		setType(s, baseType, n.Nullable)
 	}
 
+	if len(n.Enum) > 0 {
+		s["enum"] = convertEnum(n.Enum, baseType)
+	}
+	if n.Min != nil {
+		s["minimum"] = *n.Min
+	}
+	if n.Max != nil {
+		s["maximum"] = *n.Max
+	}
+	if n.Pattern != "" {
+		s["pattern"] = n.Pattern
+	}
+
 	if n.Default != nil {
 		s["default"] = n.Default
 	}
@@ -100,6 +114,31 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 	} else {
 		s["type"] = typ
 	}
+}
+
+func convertEnum(values []string, baseType string) []interface{} {
+	result := make([]interface{}, len(values))
+	for i, v := range values {
+		switch baseType {
+		case "integer":
+			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+				result[i] = n
+				continue
+			}
+		case "number":
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				result[i] = f
+				continue
+			}
+		case "boolean":
+			if b, err := strconv.ParseBool(v); err == nil {
+				result[i] = b
+				continue
+			}
+		}
+		result[i] = v
+	}
+	return result
 }
 
 func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
