@@ -125,24 +125,7 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 func convertEnum(values []string, baseType string) []interface{} {
 	result := make([]interface{}, len(values))
 	for i, v := range values {
-		switch baseType {
-		case "integer":
-			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-				result[i] = n
-				continue
-			}
-		case "number":
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				result[i] = f
-				continue
-			}
-		case "boolean":
-			if b, err := strconv.ParseBool(v); err == nil {
-				result[i] = b
-				continue
-			}
-		}
-		result[i] = v
+		result[i] = convertValue(v, baseType)
 	}
 	return result
 }
