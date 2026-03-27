@@ -1,0 +1,25 @@
+# Pull policy
+# @type string
+# @enum [Always, IfNotPresent, Never]
+pullPolicy: IfNotPresent
+
+# Service port
+# @min 1
+# @max 65535
+port: 8080
+
+# App name pattern
+# @pattern ^[a-z][a-z0-9-]*$
+appName: my-app
+
+# Old setting
+# @deprecated Use newSetting instead
+oldSetting: true
+
+# Display name example
+# @example my-custom-app
+displayName: ""
+
+# Complex config
+# @default See values.yaml
+extraConfig: {}

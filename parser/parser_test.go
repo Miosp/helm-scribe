@@ -259,3 +259,52 @@ func TestParse_TypeOverride(t *testing.T) {
 		t.Errorf("expected null warning for 'unknown', got warnings: %v", warnings)
 	}
 }
+
+func TestParse_Phase2Annotations(t *testing.T) {
+	data, err := os.ReadFile("../testdata/phase2.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes, _, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(nodes) != 6 {
+		t.Fatalf("got %d nodes, want 6", len(nodes))
+	}
+
+	// @enum
+	if len(nodes[0].Enum) != 3 || nodes[0].Enum[0] != "Always" {
+		t.Errorf("pullPolicy enum: got %v", nodes[0].Enum)
+	}
+
+	// @min/@max
+	if nodes[1].Min == nil || *nodes[1].Min != 1 {
+		t.Errorf("port min: got %v", nodes[1].Min)
+	}
+	if nodes[1].Max == nil || *nodes[1].Max != 65535 {
+		t.Errorf("port max: got %v", nodes[1].Max)
+	}
+
+	// @pattern
+	if nodes[2].Pattern != "^[a-z][a-z0-9-]*$" {
+		t.Errorf("appName pattern: got %q", nodes[2].Pattern)
+	}
+
+	// @deprecated
+	if nodes[3].Deprecated != "Use newSetting instead" {
+		t.Errorf("oldSetting deprecated: got %q", nodes[3].Deprecated)
+	}
+
+	// @example
+	if nodes[4].Example != "my-custom-app" {
+		t.Errorf("displayName example: got %q", nodes[4].Example)
+	}
+
+	// @default override
+	if nodes[5].DefaultOverride == nil || *nodes[5].DefaultOverride != "See values.yaml" {
+		t.Errorf("extraConfig defaultOverride: got %v", nodes[5].DefaultOverride)
+	}
+}
