@@ -1,6 +1,8 @@
 package parser
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParseAnnotations_DescriptionOnly(t *testing.T) {
 	input := "# Number of replicas for the deployment"
@@ -122,5 +124,90 @@ func TestParseAnnotations_ItemNestedPath(t *testing.T) {
 	}
 	if ann.Items[0].Path != "paths[].path" {
 		t.Errorf("item[0] path: got %q", ann.Items[0].Path)
+	}
+}
+
+func TestParseAnnotations_Enum(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		values []string
+	}{
+		{"unquoted", "# @enum [Always, IfNotPresent, Never]", []string{"Always", "IfNotPresent", "Never"}},
+		{"quoted", `# @enum ["val 1", "val 2"]`, []string{"val 1", "val 2"}},
+		{"numbers", "# @enum [1, 2, 3]", []string{"1", "2", "3"}},
+		{"with description", "# Pull policy\n# @enum [Always, Never]", []string{"Always", "Never"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ann := ParseAnnotations(tt.input)
+			if len(ann.Enum) != len(tt.values) {
+				t.Fatalf("enum: got %d values, want %d", len(ann.Enum), len(tt.values))
+			}
+			for i, v := range tt.values {
+				if ann.Enum[i] != v {
+					t.Errorf("enum[%d]: got %q, want %q", i, ann.Enum[i], v)
+				}
+			}
+		})
+	}
+}
+
+func TestParseAnnotations_MinMax(t *testing.T) {
+	ann := ParseAnnotations("# Port number\n# @min 1\n# @max 65535")
+	if ann.Min == nil || *ann.Min != 1 {
+		t.Errorf("min: got %v, want 1", ann.Min)
+	}
+	if ann.Max == nil || *ann.Max != 65535 {
+		t.Errorf("max: got %v, want 65535", ann.Max)
+	}
+}
+
+func TestParseAnnotations_MinMaxFloat(t *testing.T) {
+	ann := ParseAnnotations("# @min 0.1\n# @max 99.9")
+	if ann.Min == nil || *ann.Min != 0.1 {
+		t.Errorf("min: got %v, want 0.1", ann.Min)
+	}
+	if ann.Max == nil || *ann.Max != 99.9 {
+		t.Errorf("max: got %v, want 99.9", ann.Max)
+	}
+}
+
+func TestParseAnnotations_Default(t *testing.T) {
+	ann := ParseAnnotations("# @default See values.yaml")
+	if ann.DefaultOverride == nil || *ann.DefaultOverride != "See values.yaml" {
+		t.Errorf("default override: got %v", ann.DefaultOverride)
+	}
+}
+
+func TestParseAnnotations_Deprecated(t *testing.T) {
+	t.Run("with message", func(t *testing.T) {
+		ann := ParseAnnotations("# Old setting\n# @deprecated Use newSetting instead")
+		if ann.Deprecated != "Use newSetting instead" {
+			t.Errorf("deprecated: got %q", ann.Deprecated)
+		}
+		if ann.Description != "Old setting" {
+			t.Errorf("description: got %q", ann.Description)
+		}
+	})
+	t.Run("without message", func(t *testing.T) {
+		ann := ParseAnnotations("# @deprecated")
+		if ann.Deprecated != "deprecated" {
+			t.Errorf("deprecated: got %q, want %q", ann.Deprecated, "deprecated")
+		}
+	})
+}
+
+func TestParseAnnotations_Example(t *testing.T) {
+	ann := ParseAnnotations("# App name\n# @example my-custom-app")
+	if ann.Example != "my-custom-app" {
+		t.Errorf("example: got %q", ann.Example)
+	}
+}
+
+func TestParseAnnotations_Pattern(t *testing.T) {
+	ann := ParseAnnotations("# @pattern ^[a-z][a-z0-9-]*$")
+	if ann.Pattern != "^[a-z][a-z0-9-]*$" {
+		t.Errorf("pattern: got %q", ann.Pattern)
 	}
 }
