@@ -91,7 +91,7 @@ func TestGenerate_Truncation(t *testing.T) {
 	opts.TruncateLength = 80
 	result := Generate(nodes, opts)
 
-	if !strings.Contains(result, "See values.yaml") {
+	if !strings.Contains(result, "See `values.yaml`") {
 		t.Errorf("expected truncation, got:\n%s", result)
 	}
 }
@@ -166,8 +166,8 @@ func TestFormatDefault_Types(t *testing.T) {
 		{"integer", 42, "`42`"},
 		{"string", "hello", "`\"hello\"`"},
 		{"empty_array", []any{}, "`[]`"},
-		{"non_empty_array", []any{"a", "b"}, "See values.yaml"},
-		{"map", map[string]any{"k": "v"}, "See values.yaml"},
+		{"non_empty_array", []any{"a", "b"}, "See `values.yaml`"},
+		{"map", map[string]any{"k": "v"}, "See `values.yaml`"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -8,7 +8,10 @@ import (
 	"github.com/miosp/helm-scribe/model"
 )
 
-const defaultTruncateLength = 80
+const (
+	defaultTruncateLength = 80
+	seeValuesFile         = "See `values.yaml`"
+)
 
 type Options struct {
 	TruncateLength int
@@ -171,14 +174,14 @@ func formatDefault(val any, truncateLen int) string {
 		if len(v) == 0 {
 			s = "[]"
 		} else {
-			return "See values.yaml"
+			return seeValuesFile
 		}
 	case map[string]any:
-		return "See values.yaml"
+		return seeValuesFile
 	}
 
 	if truncateLen > 0 && len(s) > truncateLen {
-		return "See values.yaml"
+		return seeValuesFile
 	}
 	return fmt.Sprintf("`%s`", s)
 }
