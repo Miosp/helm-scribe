@@ -166,9 +166,9 @@ func TestParse_ArrayValues(t *testing.T) {
 	if nodes[0].Type != "array" {
 		t.Errorf("hosts type: got %q, want %q", nodes[0].Type, "array")
 	}
-	items, ok := nodes[0].Default.([]interface{})
+	items, ok := nodes[0].Default.([]any)
 	if !ok {
-		t.Fatalf("hosts default: expected []interface{}, got %T", nodes[0].Default)
+		t.Fatalf("hosts default: expected []any, got %T", nodes[0].Default)
 	}
 	if len(items) != 2 {
 		t.Errorf("hosts default: got %d items, want 2", len(items))
@@ -177,9 +177,9 @@ func TestParse_ArrayValues(t *testing.T) {
 	if nodes[1].Type != "array" {
 		t.Errorf("tags type: got %q, want %q", nodes[1].Type, "array")
 	}
-	emptyItems, ok := nodes[1].Default.([]interface{})
+	emptyItems, ok := nodes[1].Default.([]any)
 	if !ok {
-		t.Fatalf("tags default: expected []interface{}, got %T", nodes[1].Default)
+		t.Fatalf("tags default: expected []any, got %T", nodes[1].Default)
 	}
 	if len(emptyItems) != 0 {
 		t.Errorf("tags default: got %d items, want 0", len(emptyItems))
@@ -306,5 +306,33 @@ func TestParse_Phase2Annotations(t *testing.T) {
 	// @default override
 	if nodes[5].DefaultOverride == nil || *nodes[5].DefaultOverride != "See values.yaml" {
 		t.Errorf("extraConfig defaultOverride: got %v", nodes[5].DefaultOverride)
+	}
+}
+
+func TestParse_NonsensicalTypeWarns(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"bare question mark", "# @type ?\nkey: val\n"},
+		{"empty array", "# @type []\nkey: val\n"},
+		{"double question mark", "# @type ??\nkey: val\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, warnings, err := Parse([]byte(tt.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			hasWarning := false
+			for _, w := range warnings {
+				if strings.Contains(w, "unknown @type") {
+					hasWarning = true
+				}
+			}
+			if !hasWarning {
+				t.Errorf("expected unknown @type warning for %q, got: %v", tt.input, warnings)
+			}
+		})
 	}
 }

@@ -8,7 +8,10 @@ import (
 	"github.com/miosp/helm-scribe/model"
 )
 
-const defaultTruncateLength = 80
+const (
+	defaultTruncateLength = 80
+	seeValuesFile         = "See `values.yaml`"
+)
 
 type Options struct {
 	TruncateLength int
@@ -59,8 +62,8 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 			rows = append(rows, tableRow{
 				key:         fmt.Sprintf("`%s`", n.Path),
 				typ:         typStr,
-				description: desc,
-				def:         defStr,
+				description: escapePipe(desc),
+				def:         escapePipe(defStr),
 			})
 		}
 
@@ -158,7 +161,7 @@ func groupBySection(nodes []*model.ValueNode) []section {
 	return sections
 }
 
-func formatDefault(val interface{}, truncateLen int) string {
+func formatDefault(val any, truncateLen int) string {
 	if val == nil {
 		return "`null`"
 	}
@@ -167,18 +170,24 @@ func formatDefault(val interface{}, truncateLen int) string {
 	switch v := val.(type) {
 	case string:
 		s = fmt.Sprintf(`"%s"`, v)
-	case []interface{}:
+	case []any:
 		if len(v) == 0 {
 			s = "[]"
 		} else {
-			return "See values.yaml"
+			return seeValuesFile
 		}
+	case map[string]any:
+		return seeValuesFile
 	}
 
 	if truncateLen > 0 && len(s) > truncateLen {
-		return "See values.yaml"
+		return seeValuesFile
 	}
 	return fmt.Sprintf("`%s`", s)
+}
+
+func escapePipe(s string) string {
+	return strings.ReplaceAll(s, "|", "\\|")
 }
 
 const (
@@ -192,6 +201,9 @@ func InsertIntoReadme(existing, content string) (string, error) {
 
 	if startIdx == -1 || endIdx == -1 {
 		return "", errors.New("helm-scribe markers not found in README; add <!-- helm-scribe:start --> and <!-- helm-scribe:end --> markers")
+	}
+	if endIdx < startIdx+len(markerStart) {
+		return "", errors.New("helm-scribe end marker appears before start marker in README")
 	}
 
 	var b strings.Builder

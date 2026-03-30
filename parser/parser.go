@@ -168,35 +168,38 @@ func inferScalarType(node *yaml.Node) string {
 	return "string"
 }
 
-func decodeScalar(node *yaml.Node) interface{} {
+func decodeScalar(node *yaml.Node) any {
 	if node.Tag == "!!null" || node.Value == "null" || node.Value == "~" {
 		return nil
 	}
 	if node.Tag == "!!bool" {
-		v, _ := strconv.ParseBool(node.Value)
-		return v
+		if v, err := strconv.ParseBool(node.Value); err == nil {
+			return v
+		}
 	}
 	if node.Tag == "!!int" {
-		v, _ := strconv.ParseInt(node.Value, 10, 64)
-		return int(v)
+		if v, err := strconv.ParseInt(node.Value, 10, 0); err == nil {
+			return int(v)
+		}
 	}
 	if node.Tag == "!!float" {
-		v, _ := strconv.ParseFloat(node.Value, 64)
-		return v
+		if v, err := strconv.ParseFloat(node.Value, 64); err == nil {
+			return v
+		}
 	}
 	return node.Value
 }
 
-func decodeSequence(node *yaml.Node) interface{} {
+func decodeSequence(node *yaml.Node) any {
 	if len(node.Content) == 0 {
-		return []interface{}{}
+		return []any{}
 	}
-	var items []interface{}
+	var items []any
 	for _, item := range node.Content {
 		switch item.Kind {
 		case yaml.MappingNode:
 			// Non-scalar items — store raw string representation
-			var v interface{}
+			var v any
 			_ = item.Decode(&v)
 			items = append(items, v)
 		default:
@@ -212,6 +215,7 @@ var validBaseTypes = map[string]bool{
 
 func validateType(typ, path string) string {
 	base := strings.TrimSuffix(typ, "[]")
+	base = strings.TrimSuffix(base, "?")
 	if !validBaseTypes[base] {
 		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, or object", path, typ)
 	}

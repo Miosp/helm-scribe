@@ -91,7 +91,7 @@ func TestGenerate_Truncation(t *testing.T) {
 	opts.TruncateLength = 80
 	result := Generate(nodes, opts)
 
-	if !strings.Contains(result, "See values.yaml") {
+	if !strings.Contains(result, "See `values.yaml`") {
 		t.Errorf("expected truncation, got:\n%s", result)
 	}
 }
@@ -146,10 +146,18 @@ func TestInsertIntoReadme_NoMarkers(t *testing.T) {
 	}
 }
 
+func TestGenerate_PipeInDefaultAndDescription(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "sep", Description: "Use a|b format", Default: "x|y", Section: "S"},
+	}
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, `a\|b`, `x\|y`)
+}
+
 func TestFormatDefault_Types(t *testing.T) {
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		want string
 	}{
 		{"nil", nil, "`null`"},
@@ -157,8 +165,9 @@ func TestFormatDefault_Types(t *testing.T) {
 		{"bool_false", false, "`false`"},
 		{"integer", 42, "`42`"},
 		{"string", "hello", "`\"hello\"`"},
-		{"empty_array", []interface{}{}, "`[]`"},
-		{"non_empty_array", []interface{}{"a", "b"}, "See values.yaml"},
+		{"empty_array", []any{}, "`[]`"},
+		{"non_empty_array", []any{"a", "b"}, "See `values.yaml`"},
+		{"map", map[string]any{"k": "v"}, "See `values.yaml`"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -259,7 +268,7 @@ func TestGenerate_TypeColumn(t *testing.T) {
 		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
 		{Path: "port", Description: "Port", Type: "integer", Default: 80, Section: "S"},
 		{Path: "label", Description: "Label", Type: "string", Nullable: true, Default: nil, Section: "S"},
-		{Path: "tags", Description: "Tags", Type: "string[]", Default: []interface{}{}, Section: "S"},
+		{Path: "tags", Description: "Tags", Type: "string[]", Default: []any{}, Section: "S"},
 	}
 
 	opts := DefaultOptions()
@@ -347,6 +356,14 @@ func TestGenerate_Phase2AnnotationsNotRendered(t *testing.T) {
 	assertRowContains(t, result, "`port`", "Port", "`80`")
 	assertRowContains(t, result, "`name`", "Name", "`\"app\"`")
 	assertRowContains(t, result, "`display`", "Display")
+}
+
+func TestInsertIntoReadme_ReversedMarkers(t *testing.T) {
+	existing := "# Chart\n<!-- helm-scribe:end -->\nold\n<!-- helm-scribe:start -->\n"
+	_, err := InsertIntoReadme(existing, "new")
+	if err == nil {
+		t.Error("expected error when end marker appears before start marker")
+	}
 }
 
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
