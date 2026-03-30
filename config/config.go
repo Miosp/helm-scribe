@@ -53,9 +53,6 @@ func LoadConfig(path string) (Config, error) {
 		return cfg, err
 	}
 
-	if cfg.TruncateLength == 0 {
-		cfg.TruncateLength = DefaultTruncateLength
-	}
 	if cfg.ValuesFile == "" {
 		cfg.ValuesFile = DefaultValuesFile
 	}

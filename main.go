@@ -84,7 +84,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	if readmeFile != "" {
 		cfg.ReadmeFile = readmeFile
 	}
-	if truncateLength > 0 {
+	if f.Changed("truncate-length") {
 		cfg.TruncateLength = truncateLength
 	}
 	if headingLevel > 0 {

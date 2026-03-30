@@ -51,6 +51,22 @@ func TestLoadConfig_MissingFileUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_TruncateLengthZeroDisablesTruncation(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, ".helm-scribe.yaml")
+	if err := os.WriteFile(cfgPath, []byte("truncateLength: 0\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TruncateLength != 0 {
+		t.Errorf("truncateLength: got %d, want 0 (disabled)", cfg.TruncateLength)
+	}
+}
+
 func TestLoadConfig_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, ".helm-scribe.yaml")
