@@ -212,6 +212,7 @@ var validBaseTypes = map[string]bool{
 
 func validateType(typ, path string) string {
 	base := strings.TrimSuffix(typ, "[]")
+	base = strings.TrimSuffix(base, "?")
 	if !validBaseTypes[base] {
 		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, or object", path, typ)
 	}
