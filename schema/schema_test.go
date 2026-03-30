@@ -8,19 +8,19 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-func mustUnmarshal(t *testing.T, data []byte) map[string]interface{} {
+func mustUnmarshal(t *testing.T, data []byte) map[string]any {
 	t.Helper()
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Fatal(err)
 	}
 	return m
 }
 
-func prop(t *testing.T, schema map[string]interface{}, key string) map[string]interface{} {
+func prop(t *testing.T, schema map[string]any, key string) map[string]any {
 	t.Helper()
-	props := schema["properties"].(map[string]interface{})
-	return props[key].(map[string]interface{})
+	props := schema["properties"].(map[string]any)
+	return props[key].(map[string]any)
 }
 
 func TestGenerate_Scalars(t *testing.T) {
@@ -83,8 +83,8 @@ func TestGenerate_NestedObject(t *testing.T) {
 		t.Errorf("image type: got %v", img["type"])
 	}
 
-	imgProps := img["properties"].(map[string]interface{})
-	repo := imgProps["repository"].(map[string]interface{})
+	imgProps := img["properties"].(map[string]any)
+	repo := imgProps["repository"].(map[string]any)
 	if repo["type"] != "string" {
 		t.Errorf("repository type: got %v", repo["type"])
 	}
@@ -103,7 +103,7 @@ func TestGenerate_Required(t *testing.T) {
 	}
 
 	schema := mustUnmarshal(t, data)
-	req, ok := schema["required"].([]interface{})
+	req, ok := schema["required"].([]any)
 	if !ok {
 		t.Fatal("required missing")
 	}
@@ -122,7 +122,7 @@ func TestGenerate_Nullable(t *testing.T) {
 	}
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "label")
-	typeVal, ok := p["type"].([]interface{})
+	typeVal, ok := p["type"].([]any)
 	if !ok {
 		t.Fatalf("expected type array, got %T: %v", p["type"], p["type"])
 	}
@@ -133,7 +133,7 @@ func TestGenerate_Nullable(t *testing.T) {
 
 func TestGenerate_ArrayType(t *testing.T) {
 	nodes := []*model.ValueNode{
-		{Key: "tags", Path: "tags", Type: "string[]", Default: []interface{}{}},
+		{Key: "tags", Path: "tags", Type: "string[]", Default: []any{}},
 	}
 	data, err := Generate(nodes)
 	if err != nil {
@@ -144,7 +144,7 @@ func TestGenerate_ArrayType(t *testing.T) {
 	if p["type"] != "array" {
 		t.Errorf("type: got %v", p["type"])
 	}
-	items := p["items"].(map[string]interface{})
+	items := p["items"].(map[string]any)
 	if items["type"] != "string" {
 		t.Errorf("items type: got %v", items["type"])
 	}
@@ -152,7 +152,7 @@ func TestGenerate_ArrayType(t *testing.T) {
 
 func TestGenerate_NullableArray(t *testing.T) {
 	nodes := []*model.ValueNode{
-		{Key: "tags", Path: "tags", Type: "string[]", Nullable: true, Default: []interface{}{}},
+		{Key: "tags", Path: "tags", Type: "string[]", Nullable: true, Default: []any{}},
 	}
 	data, err := Generate(nodes)
 	if err != nil {
@@ -160,7 +160,7 @@ func TestGenerate_NullableArray(t *testing.T) {
 	}
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "tags")
-	typeVal := p["type"].([]interface{})
+	typeVal := p["type"].([]any)
 	if len(typeVal) != 2 || typeVal[0] != "array" || typeVal[1] != "null" {
 		t.Errorf("type: got %v, want [array null]", typeVal)
 	}
@@ -170,7 +170,7 @@ func TestGenerate_ObjectArrayWithItems(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{
 			Key: "hosts", Path: "hosts", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "host", Type: "string"},
 				{Path: "paths", Type: "object[]"},
@@ -191,26 +191,26 @@ func TestGenerate_ObjectArrayWithItems(t *testing.T) {
 		t.Errorf("type: got %v", hosts["type"])
 	}
 
-	items := hosts["items"].(map[string]interface{})
+	items := hosts["items"].(map[string]any)
 	if items["type"] != "object" {
 		t.Errorf("items type: got %v", items["type"])
 	}
 
-	itemProps := items["properties"].(map[string]interface{})
+	itemProps := items["properties"].(map[string]any)
 
-	host := itemProps["host"].(map[string]interface{})
+	host := itemProps["host"].(map[string]any)
 	if host["type"] != "string" {
 		t.Errorf("host type: got %v", host["type"])
 	}
 
-	paths := itemProps["paths"].(map[string]interface{})
+	paths := itemProps["paths"].(map[string]any)
 	if paths["type"] != "array" {
 		t.Errorf("paths type: got %v", paths["type"])
 	}
 
-	pathItems := paths["items"].(map[string]interface{})
-	pathProps := pathItems["properties"].(map[string]interface{})
-	pathProp := pathProps["path"].(map[string]interface{})
+	pathItems := paths["items"].(map[string]any)
+	pathProps := pathItems["properties"].(map[string]any)
+	pathProp := pathProps["path"].(map[string]any)
 	if pathProp["type"] != "string" {
 		t.Errorf("paths[].path type: got %v", pathProp["type"])
 	}
@@ -220,7 +220,7 @@ func TestGenerate_NullableItemType(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{
 			Key: "entries", Path: "entries", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "name", Type: "string"},
 				{Path: "label", Type: "string?"},
@@ -235,16 +235,16 @@ func TestGenerate_NullableItemType(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	entries := prop(t, schema, "entries")
-	items := entries["items"].(map[string]interface{})
-	itemProps := items["properties"].(map[string]interface{})
+	items := entries["items"].(map[string]any)
+	itemProps := items["properties"].(map[string]any)
 
-	name := itemProps["name"].(map[string]interface{})
+	name := itemProps["name"].(map[string]any)
 	if name["type"] != "string" {
 		t.Errorf("name type: got %v", name["type"])
 	}
 
-	label := itemProps["label"].(map[string]interface{})
-	typeArr, ok := label["type"].([]interface{})
+	label := itemProps["label"].(map[string]any)
+	typeArr, ok := label["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
 		t.Errorf("label type: expected [string null], got %v", label["type"])
 	}
@@ -275,7 +275,7 @@ func TestGenerate_NullWithoutType(t *testing.T) {
 // that can validate documents. Fails the test if the schema is not valid draft-07.
 func compileSchema(t *testing.T, schemaBytes []byte) *jsonschema.Schema {
 	t.Helper()
-	var doc interface{}
+	var doc any
 	if err := json.Unmarshal(schemaBytes, &doc); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -291,9 +291,9 @@ func compileSchema(t *testing.T, schemaBytes []byte) *jsonschema.Schema {
 	return sch
 }
 
-func unmarshalDoc(t *testing.T, jsonStr string) interface{} {
+func unmarshalDoc(t *testing.T, jsonStr string) any {
 	t.Helper()
-	var v interface{}
+	var v any
 	if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
 		t.Fatalf("invalid JSON doc: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestGenerate_ValidDraft07(t *testing.T) {
 		{Key: "port", Path: "port", Type: "integer", Default: 80},
 		{Key: "debug", Path: "debug", Type: "boolean", Default: false},
 		{Key: "label", Path: "label", Type: "string", Nullable: true, Default: nil},
-		{Key: "tags", Path: "tags", Type: "string[]", Default: []interface{}{}},
+		{Key: "tags", Path: "tags", Type: "string[]", Default: []any{}},
 		{
 			Key: "image", Path: "image", Type: "object",
 			Children: []*model.ValueNode{
@@ -316,7 +316,7 @@ func TestGenerate_ValidDraft07(t *testing.T) {
 		},
 		{
 			Key: "hosts", Path: "hosts", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "host", Type: "string"},
 				{Path: "port", Type: "integer"},
@@ -340,7 +340,7 @@ func TestGenerate_SchemaValidatesDocuments(t *testing.T) {
 		{Key: "port", Path: "port", Type: "integer", Default: 80},
 		{Key: "debug", Path: "debug", Type: "boolean", Default: false},
 		{Key: "label", Path: "label", Type: "string", Nullable: true, Default: nil},
-		{Key: "tags", Path: "tags", Type: "string[]", Default: []interface{}{}},
+		{Key: "tags", Path: "tags", Type: "string[]", Default: []any{}},
 	}
 
 	data, err := Generate(nodes)
@@ -385,7 +385,7 @@ func TestGenerate_ObjectArraySchemaValidates(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{
 			Key: "hosts", Path: "hosts", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "host", Type: "string"},
 				{Path: "port", Type: "integer"},
@@ -414,7 +414,7 @@ func TestGenerate_ObjectArraySchemaValidates(t *testing.T) {
 func TestGenerate_ArrayOfNullableItems(t *testing.T) {
 	// string?[] -> array of (string | null)
 	nodes := []*model.ValueNode{
-		{Key: "names", Path: "names", Type: "string[]", ItemNullable: true, Default: []interface{}{}},
+		{Key: "names", Path: "names", Type: "string[]", ItemNullable: true, Default: []any{}},
 	}
 
 	data, err := Generate(nodes)
@@ -428,8 +428,8 @@ func TestGenerate_ArrayOfNullableItems(t *testing.T) {
 	if p["type"] != "array" {
 		t.Fatalf("type: got %v, want array", p["type"])
 	}
-	items := p["items"].(map[string]interface{})
-	typeArr, ok := items["type"].([]interface{})
+	items := p["items"].(map[string]any)
+	typeArr, ok := items["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
 		t.Errorf("items type: expected [string null], got %v", items["type"])
 	}
@@ -478,7 +478,7 @@ func TestGenerate_NullableItemsAllTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name+"?[] array of nullable", func(t *testing.T) {
 			nodes := []*model.ValueNode{
-				{Key: "val", Path: "val", Type: tt.baseType + "[]", ItemNullable: true, Default: []interface{}{}},
+				{Key: "val", Path: "val", Type: tt.baseType + "[]", ItemNullable: true, Default: []any{}},
 			}
 			data, err := Generate(nodes)
 			if err != nil {
@@ -491,8 +491,8 @@ func TestGenerate_NullableItemsAllTypes(t *testing.T) {
 			if p["type"] != "array" {
 				t.Fatalf("outer type: got %v, want array", p["type"])
 			}
-			items := p["items"].(map[string]interface{})
-			typeArr, ok := items["type"].([]interface{})
+			items := p["items"].(map[string]any)
+			typeArr, ok := items["type"].([]any)
 			if !ok || len(typeArr) != 2 || typeArr[0] != tt.baseType || typeArr[1] != "null" {
 				t.Fatalf("items type: expected [%s null], got %v", tt.baseType, items["type"])
 			}
@@ -517,7 +517,7 @@ func TestGenerate_NullableItemsAllTypes(t *testing.T) {
 
 		t.Run(tt.name+"?[]? nullable array of nullable", func(t *testing.T) {
 			nodes := []*model.ValueNode{
-				{Key: "val", Path: "val", Type: tt.baseType + "[]", Nullable: true, ItemNullable: true, Default: []interface{}{}},
+				{Key: "val", Path: "val", Type: tt.baseType + "[]", Nullable: true, ItemNullable: true, Default: []any{}},
 			}
 			data, err := Generate(nodes)
 			if err != nil {
@@ -526,12 +526,12 @@ func TestGenerate_NullableItemsAllTypes(t *testing.T) {
 
 			schema := mustUnmarshal(t, data)
 			p := prop(t, schema, "val")
-			outerType, ok := p["type"].([]interface{})
+			outerType, ok := p["type"].([]any)
 			if !ok || len(outerType) != 2 || outerType[0] != "array" || outerType[1] != "null" {
 				t.Fatalf("outer type: expected [array null], got %v", p["type"])
 			}
-			items := p["items"].(map[string]interface{})
-			itemType, ok := items["type"].([]interface{})
+			items := p["items"].(map[string]any)
+			itemType, ok := items["type"].([]any)
 			if !ok || len(itemType) != 2 || itemType[0] != tt.baseType || itemType[1] != "null" {
 				t.Fatalf("items type: expected [%s null], got %v", tt.baseType, items["type"])
 			}
@@ -564,7 +564,7 @@ func TestGenerate_NullableItemsAllTypes(t *testing.T) {
 func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
 	// string?[]? -> (array | null) of (string | null)
 	nodes := []*model.ValueNode{
-		{Key: "names", Path: "names", Type: "string[]", Nullable: true, ItemNullable: true, Default: []interface{}{}},
+		{Key: "names", Path: "names", Type: "string[]", Nullable: true, ItemNullable: true, Default: []any{}},
 	}
 
 	data, err := Generate(nodes)
@@ -577,14 +577,14 @@ func TestGenerate_NullableArrayOfNullableItems(t *testing.T) {
 	p := prop(t, schema, "names")
 
 	// Outer type should be [array, null]
-	outerType, ok := p["type"].([]interface{})
+	outerType, ok := p["type"].([]any)
 	if !ok || len(outerType) != 2 || outerType[0] != "array" || outerType[1] != "null" {
 		t.Errorf("outer type: expected [array null], got %v", p["type"])
 	}
 
 	// Items type should be [string, null]
-	items := p["items"].(map[string]interface{})
-	itemType, ok := items["type"].([]interface{})
+	items := p["items"].(map[string]any)
+	itemType, ok := items["type"].([]any)
 	if !ok || len(itemType) != 2 || itemType[0] != "string" || itemType[1] != "null" {
 		t.Errorf("items type: expected [string null], got %v", items["type"])
 	}
@@ -635,7 +635,7 @@ func TestGenerate_ObjectWithAllNullChildrenNotRequired(t *testing.T) {
 	}
 
 	schema := mustUnmarshal(t, data)
-	req, ok := schema["required"].([]interface{})
+	req, ok := schema["required"].([]any)
 	if !ok {
 		t.Fatal("required missing")
 	}
@@ -676,8 +676,8 @@ func TestGenerate_DeeplyNestedAllNullNotRequired(t *testing.T) {
 		t.Errorf("top.required should be absent, got %v", top["required"])
 	}
 
-	topProps := top["properties"].(map[string]interface{})
-	mid := topProps["mid"].(map[string]interface{})
+	topProps := top["properties"].(map[string]any)
+	mid := topProps["mid"].(map[string]any)
 	if _, ok := mid["required"]; ok {
 		t.Errorf("mid.required should be absent, got %v", mid["required"])
 	}
@@ -700,7 +700,7 @@ func TestGenerate_ObjectWithMixedChildrenRequired(t *testing.T) {
 	}
 
 	schema := mustUnmarshal(t, data)
-	req, ok := schema["required"].([]interface{})
+	req, ok := schema["required"].([]any)
 	if !ok {
 		t.Fatal("required missing")
 	}
@@ -727,7 +727,7 @@ func TestGenerate_NullableObject(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "service")
-	typeArr, ok := p["type"].([]interface{})
+	typeArr, ok := p["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "object" || typeArr[1] != "null" {
 		t.Fatalf("type: expected [object null], got %v", p["type"])
 	}
@@ -780,26 +780,26 @@ func TestGenerate_ObjectWithNullableProperties(t *testing.T) {
 	if cfg["type"] != "object" {
 		t.Fatalf("config type: got %v", cfg["type"])
 	}
-	cfgProps := cfg["properties"].(map[string]interface{})
+	cfgProps := cfg["properties"].(map[string]any)
 
-	name := cfgProps["name"].(map[string]interface{})
+	name := cfgProps["name"].(map[string]any)
 	if name["type"] != "string" {
 		t.Errorf("name type: got %v", name["type"])
 	}
 
-	desc := cfgProps["description"].(map[string]interface{})
-	descType, ok := desc["type"].([]interface{})
+	desc := cfgProps["description"].(map[string]any)
+	descType, ok := desc["type"].([]any)
 	if !ok || len(descType) != 2 || descType[0] != "string" || descType[1] != "null" {
 		t.Errorf("description type: expected [string null], got %v", desc["type"])
 	}
 
-	rep := cfgProps["replicas"].(map[string]interface{})
-	repType, ok := rep["type"].([]interface{})
+	rep := cfgProps["replicas"].(map[string]any)
+	repType, ok := rep["type"].([]any)
 	if !ok || len(repType) != 2 || repType[0] != "integer" || repType[1] != "null" {
 		t.Errorf("replicas type: expected [integer null], got %v", rep["type"])
 	}
 
-	req, ok := cfg["required"].([]interface{})
+	req, ok := cfg["required"].([]any)
 	if !ok || len(req) != 1 || req[0] != "name" {
 		t.Errorf("required: expected [name], got %v", req)
 	}
@@ -851,15 +851,15 @@ func TestGenerate_NullableNestedObjects(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	outer := prop(t, schema, "outer")
-	outerProps := outer["properties"].(map[string]interface{})
-	middle := outerProps["middle"].(map[string]interface{})
-	midType, ok := middle["type"].([]interface{})
+	outerProps := outer["properties"].(map[string]any)
+	middle := outerProps["middle"].(map[string]any)
+	midType, ok := middle["type"].([]any)
 	if !ok || len(midType) != 2 || midType[0] != "object" || midType[1] != "null" {
 		t.Fatalf("middle type: expected [object null], got %v", middle["type"])
 	}
-	midProps := middle["properties"].(map[string]interface{})
-	optLeaf := midProps["optLeaf"].(map[string]interface{})
-	optLeafType, ok := optLeaf["type"].([]interface{})
+	midProps := middle["properties"].(map[string]any)
+	optLeaf := midProps["optLeaf"].(map[string]any)
+	optLeafType, ok := optLeaf["type"].([]any)
 	if !ok || len(optLeafType) != 2 || optLeafType[0] != "integer" || optLeafType[1] != "null" {
 		t.Errorf("optLeaf type: expected [integer null], got %v", optLeaf["type"])
 	}
@@ -902,7 +902,7 @@ func TestGenerate_ItemWithNullableArrayType(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{
 			Key: "entries", Path: "entries", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "name", Type: "string"},
 				{Path: "values", Type: "string?[]"},
@@ -917,18 +917,18 @@ func TestGenerate_ItemWithNullableArrayType(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	entries := prop(t, schema, "entries")
-	items := entries["items"].(map[string]interface{})
-	itemProps := items["properties"].(map[string]interface{})
+	items := entries["items"].(map[string]any)
+	itemProps := items["properties"].(map[string]any)
 
-	vals := itemProps["values"].(map[string]interface{})
+	vals := itemProps["values"].(map[string]any)
 	if vals["type"] != "array" {
 		t.Fatalf("values type: got %v, want array", vals["type"])
 	}
-	valItems, ok := vals["items"].(map[string]interface{})
+	valItems, ok := vals["items"].(map[string]any)
 	if !ok {
 		t.Fatal("values should have items constraint")
 	}
-	typeArr, ok := valItems["type"].([]interface{})
+	typeArr, ok := valItems["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
 		t.Errorf("values items type: expected [string null], got %v", valItems["type"])
 	}
@@ -952,7 +952,7 @@ func TestGenerate_ItemWithNullableArray(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{
 			Key: "entries", Path: "entries", Type: "object[]",
-			Default: []interface{}{},
+			Default: []any{},
 			Items: []*model.ItemDef{
 				{Path: "name", Type: "string"},
 				{Path: "tags", Type: "string[]?"},
@@ -967,15 +967,15 @@ func TestGenerate_ItemWithNullableArray(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	entries := prop(t, schema, "entries")
-	items := entries["items"].(map[string]interface{})
-	itemProps := items["properties"].(map[string]interface{})
+	items := entries["items"].(map[string]any)
+	itemProps := items["properties"].(map[string]any)
 
-	tags := itemProps["tags"].(map[string]interface{})
-	typeArr, ok := tags["type"].([]interface{})
+	tags := itemProps["tags"].(map[string]any)
+	typeArr, ok := tags["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "array" || typeArr[1] != "null" {
 		t.Fatalf("tags type: expected [array null], got %v", tags["type"])
 	}
-	tagItems, ok := tags["items"].(map[string]interface{})
+	tagItems, ok := tags["items"].(map[string]any)
 	if !ok {
 		t.Fatal("tags should have items constraint")
 	}
@@ -1004,7 +1004,7 @@ func TestGenerate_Enum(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "policy")
-	enumVal, ok := p["enum"].([]interface{})
+	enumVal, ok := p["enum"].([]any)
 	if !ok {
 		t.Fatalf("enum missing, got %v", p["enum"])
 	}
@@ -1037,7 +1037,7 @@ func TestGenerate_EnumInteger(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "level")
-	enumVal := p["enum"].([]interface{})
+	enumVal := p["enum"].([]any)
 	if enumVal[0] != float64(1) {
 		t.Errorf("enum[0]: got %v (%T), want numeric 1", enumVal[0], enumVal[0])
 	}
@@ -1150,7 +1150,7 @@ func TestGenerate_Example(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "name")
-	examples, ok := p["examples"].([]interface{})
+	examples, ok := p["examples"].([]any)
 	if !ok || len(examples) != 1 || examples[0] != "my-custom-app" {
 		t.Errorf("examples: got %v", p["examples"])
 	}
@@ -1171,7 +1171,7 @@ func TestGenerate_ExampleInteger(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "port")
-	examples := p["examples"].([]interface{})
+	examples := p["examples"].([]any)
 	if examples[0] != float64(8080) {
 		t.Errorf("example: got %v (%T), want numeric 8080", examples[0], examples[0])
 	}
@@ -1263,7 +1263,7 @@ func TestGenerate_EnumTypeConversionFailure(t *testing.T) {
 
 		schema := mustUnmarshal(t, data)
 		p := prop(t, schema, "level")
-		enumVal := p["enum"].([]interface{})
+		enumVal := p["enum"].([]any)
 		// Conversion fails, so raw strings are emitted
 		if enumVal[0] != "low" {
 			t.Errorf("enum[0]: got %v (%T), want string 'low'", enumVal[0], enumVal[0])
@@ -1285,7 +1285,7 @@ func TestGenerate_EnumTypeConversionFailure(t *testing.T) {
 
 		schema := mustUnmarshal(t, data)
 		p := prop(t, schema, "ratio")
-		enumVal := p["enum"].([]interface{})
+		enumVal := p["enum"].([]any)
 		if enumVal[0] != "small" {
 			t.Errorf("enum[0]: got %v (%T), want string 'small'", enumVal[0], enumVal[0])
 		}
@@ -1306,7 +1306,7 @@ func TestGenerate_EnumTypeConversionFailure(t *testing.T) {
 
 		schema := mustUnmarshal(t, data)
 		p := prop(t, schema, "flag")
-		enumVal := p["enum"].([]interface{})
+		enumVal := p["enum"].([]any)
 		// "yes"/"no" don't parse as booleans, so raw strings are emitted
 		if enumVal[0] != "yes" {
 			t.Errorf("enum[0]: got %v (%T), want string 'yes'", enumVal[0], enumVal[0])
@@ -1328,7 +1328,7 @@ func TestGenerate_NullableObjectNoChildren(t *testing.T) {
 
 	schema := mustUnmarshal(t, data)
 	p := prop(t, schema, "extra")
-	typeArr, ok := p["type"].([]interface{})
+	typeArr, ok := p["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "object" || typeArr[1] != "null" {
 		t.Fatalf("type: expected [object null], got %v", p["type"])
 	}

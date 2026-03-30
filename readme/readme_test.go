@@ -149,7 +149,7 @@ func TestInsertIntoReadme_NoMarkers(t *testing.T) {
 func TestFormatDefault_Types(t *testing.T) {
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		want string
 	}{
 		{"nil", nil, "`null`"},
@@ -157,8 +157,8 @@ func TestFormatDefault_Types(t *testing.T) {
 		{"bool_false", false, "`false`"},
 		{"integer", 42, "`42`"},
 		{"string", "hello", "`\"hello\"`"},
-		{"empty_array", []interface{}{}, "`[]`"},
-		{"non_empty_array", []interface{}{"a", "b"}, "See values.yaml"},
+		{"empty_array", []any{}, "`[]`"},
+		{"non_empty_array", []any{"a", "b"}, "See values.yaml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -259,7 +259,7 @@ func TestGenerate_TypeColumn(t *testing.T) {
 		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
 		{Path: "port", Description: "Port", Type: "integer", Default: 80, Section: "S"},
 		{Path: "label", Description: "Label", Type: "string", Nullable: true, Default: nil, Section: "S"},
-		{Path: "tags", Description: "Tags", Type: "string[]", Default: []interface{}{}, Section: "S"},
+		{Path: "tags", Description: "Tags", Type: "string[]", Default: []any{}, Section: "S"},
 	}
 
 	opts := DefaultOptions()

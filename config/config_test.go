@@ -22,7 +22,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 func TestLoadConfig_FromFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, ".helm-scribe.yaml")
-	os.WriteFile(cfgPath, []byte("truncateLength: 40\nvaluesFile: my-values.yaml\n"), 0644)
+	if err := os.WriteFile(cfgPath, []byte("truncateLength: 40\nvaluesFile: my-values.yaml\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
@@ -52,7 +54,9 @@ func TestLoadConfig_MissingFileUsesDefaults(t *testing.T) {
 func TestLoadConfig_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, ".helm-scribe.yaml")
-	os.WriteFile(cfgPath, []byte(":\n  :\n    - [invalid"), 0644)
+	if err := os.WriteFile(cfgPath, []byte(":\n  :\n    - [invalid"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := LoadConfig(cfgPath)
 	if err == nil {

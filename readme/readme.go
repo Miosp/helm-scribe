@@ -158,7 +158,7 @@ func groupBySection(nodes []*model.ValueNode) []section {
 	return sections
 }
 
-func formatDefault(val interface{}, truncateLen int) string {
+func formatDefault(val any, truncateLen int) string {
 	if val == nil {
 		return "`null`"
 	}
@@ -167,7 +167,7 @@ func formatDefault(val interface{}, truncateLen int) string {
 	switch v := val.(type) {
 	case string:
 		s = fmt.Sprintf(`"%s"`, v)
-	case []interface{}:
+	case []any:
 		if len(v) == 0 {
 			s = "[]"
 		} else {

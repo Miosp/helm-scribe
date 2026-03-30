@@ -90,7 +90,7 @@ func TestEndToEnd_SchemaStructure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var s map[string]interface{}
+	var s map[string]any
 	if err := json.Unmarshal(schemaBytes, &s); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestEndToEnd_SchemaStructure(t *testing.T) {
 		t.Error("wrong $schema")
 	}
 
-	props := s["properties"].(map[string]interface{})
+	props := s["properties"].(map[string]any)
 
 	// Inferred scalar types
 	assertPropType(t, props, "replicaCount", "integer")
@@ -112,49 +112,49 @@ func TestEndToEnd_SchemaStructure(t *testing.T) {
 	assertPropType(t, props, "service_type", "string")
 
 	// Nullable
-	od := props["optionalDescription"].(map[string]interface{})
-	typeArr, ok := od["type"].([]interface{})
+	od := props["optionalDescription"].(map[string]any)
+	typeArr, ok := od["type"].([]any)
 	if !ok || len(typeArr) != 2 || typeArr[0] != "string" || typeArr[1] != "null" {
 		t.Errorf("optionalDescription type: expected [string null], got %v", od["type"])
 	}
 
 	// string[]
-	tags := props["tags"].(map[string]interface{})
+	tags := props["tags"].(map[string]any)
 	if tags["type"] != "array" {
 		t.Errorf("tags type: got %v", tags["type"])
 	}
-	tagItems := tags["items"].(map[string]interface{})
+	tagItems := tags["items"].(map[string]any)
 	if tagItems["type"] != "string" {
 		t.Errorf("tags items type: got %v", tagItems["type"])
 	}
 
 	// @item object array with nested paths
-	hosts := props["hosts"].(map[string]interface{})
+	hosts := props["hosts"].(map[string]any)
 	if hosts["type"] != "array" {
 		t.Errorf("hosts type: got %v", hosts["type"])
 	}
-	hostItems := hosts["items"].(map[string]interface{})
+	hostItems := hosts["items"].(map[string]any)
 	if hostItems["type"] != "object" {
 		t.Errorf("hosts items type: got %v", hostItems["type"])
 	}
-	hostProps := hostItems["properties"].(map[string]interface{})
+	hostProps := hostItems["properties"].(map[string]any)
 	assertPropType(t, hostProps, "host", "string")
-	paths := hostProps["paths"].(map[string]interface{})
+	paths := hostProps["paths"].(map[string]any)
 	if paths["type"] != "array" {
 		t.Errorf("paths type: got %v", paths["type"])
 	}
 
 	// Nested object
-	img := props["image"].(map[string]interface{})
+	img := props["image"].(map[string]any)
 	if img["type"] != "object" {
 		t.Errorf("image type: got %v", img["type"])
 	}
-	imgProps := img["properties"].(map[string]interface{})
+	imgProps := img["properties"].(map[string]any)
 	assertPropType(t, imgProps, "repository", "string")
 	assertPropType(t, imgProps, "tag", "string")
 
 	// Untyped null — empty schema (no type field)
-	unknown := props["unknownField"].(map[string]interface{})
+	unknown := props["unknownField"].(map[string]any)
 	if _, hasType := unknown["type"]; hasType {
 		t.Errorf("unknownField should have no type, got %v", unknown["type"])
 	}
@@ -303,8 +303,12 @@ func TestEndToEnd_RunFunction(t *testing.T) {
 	// Copy fixture files
 	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
 	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
-	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
-	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmpDir+"/README.md", readmeData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	valuesPath := tmpDir + "/values.yaml"
@@ -321,7 +325,7 @@ func TestEndToEnd_RunFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("schema file not written: %v", err)
 	}
-	var s map[string]interface{}
+	var s map[string]any
 	if err := json.Unmarshal(schemaBytes, &s); err != nil {
 		t.Fatalf("schema file is not valid JSON: %v", err)
 	}
@@ -344,8 +348,12 @@ func TestEndToEnd_RunSchemaOnly(t *testing.T) {
 
 	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
 	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
-	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
-	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmpDir+"/README.md", readmeData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	cfg.SchemaOnly = true
@@ -372,8 +380,12 @@ func TestEndToEnd_RunReadmeOnly(t *testing.T) {
 
 	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
 	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
-	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
-	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmpDir+"/README.md", readmeData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	cfg.ReadmeOnly = true
@@ -399,8 +411,12 @@ func TestStrictWithWarnings(t *testing.T) {
 	tmpDir := t.TempDir()
 	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
 	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
-	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
-	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmpDir+"/README.md", readmeData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	cfg.Strict = true
@@ -423,7 +439,9 @@ func TestStrictWithWarnings(t *testing.T) {
 
 func TestStrictWithoutWarnings(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.WriteFile(tmpDir+"/values.yaml", []byte("# Name\nname: test\n"), 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", []byte("# Name\nname: test\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	cfg.Strict = true
@@ -439,8 +457,12 @@ func TestNonStrictWithWarnings(t *testing.T) {
 	tmpDir := t.TempDir()
 	valuesData, _ := os.ReadFile("testdata/e2e/values.yaml")
 	readmeData, _ := os.ReadFile("testdata/e2e/README.md")
-	os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644)
-	os.WriteFile(tmpDir+"/README.md", readmeData, 0644)
+	if err := os.WriteFile(tmpDir+"/values.yaml", valuesData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tmpDir+"/README.md", readmeData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.DefaultConfig()
 	// cfg.Strict is false by default
@@ -466,22 +488,22 @@ func TestEndToEnd_Phase2Schema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var s map[string]interface{}
+	var s map[string]any
 	if err := json.Unmarshal(schemaBytes, &s); err != nil {
 		t.Fatal(err)
 	}
 
-	props := s["properties"].(map[string]interface{})
+	props := s["properties"].(map[string]any)
 
 	// @enum
-	pp := props["pullPolicy"].(map[string]interface{})
-	enumVal, ok := pp["enum"].([]interface{})
+	pp := props["pullPolicy"].(map[string]any)
+	enumVal, ok := pp["enum"].([]any)
 	if !ok || len(enumVal) != 3 {
 		t.Errorf("pullPolicy enum: got %v", pp["enum"])
 	}
 
 	// @min/@max
-	vp := props["validatedPort"].(map[string]interface{})
+	vp := props["validatedPort"].(map[string]any)
 	if vp["minimum"] != float64(1) {
 		t.Errorf("validatedPort minimum: got %v", vp["minimum"])
 	}
@@ -490,20 +512,20 @@ func TestEndToEnd_Phase2Schema(t *testing.T) {
 	}
 
 	// @pattern
-	an := props["appName"].(map[string]interface{})
+	an := props["appName"].(map[string]any)
 	if an["pattern"] != "^[a-z][a-z0-9-]*$" {
 		t.Errorf("appName pattern: got %v", an["pattern"])
 	}
 
 	// @deprecated
-	os_ := props["oldSetting"].(map[string]interface{})
+	os_ := props["oldSetting"].(map[string]any)
 	if os_["deprecated"] != true {
 		t.Errorf("oldSetting deprecated: got %v", os_["deprecated"])
 	}
 
 	// @example
-	dn := props["displayName"].(map[string]interface{})
-	examples, ok := dn["examples"].([]interface{})
+	dn := props["displayName"].(map[string]any)
+	examples, ok := dn["examples"].([]any)
 	if !ok || len(examples) != 1 || examples[0] != "my-custom-app" {
 		t.Errorf("displayName examples: got %v", dn["examples"])
 	}
@@ -598,9 +620,9 @@ func TestEndToEnd_Phase2Readme(t *testing.T) {
 
 // --- helpers ---
 
-func assertPropType(t *testing.T, props map[string]interface{}, key, expectedType string) {
+func assertPropType(t *testing.T, props map[string]any, key, expectedType string) {
 	t.Helper()
-	p, ok := props[key].(map[string]interface{})
+	p, ok := props[key].(map[string]any)
 	if !ok {
 		t.Errorf("property %q missing or wrong type", key)
 		return
@@ -612,7 +634,7 @@ func assertPropType(t *testing.T, props map[string]interface{}, key, expectedTyp
 
 func compileE2ESchema(t *testing.T, schemaBytes []byte) *jsonschema.Schema {
 	t.Helper()
-	var doc interface{}
+	var doc any
 	if err := json.Unmarshal(schemaBytes, &doc); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -627,7 +649,7 @@ func compileE2ESchema(t *testing.T, schemaBytes []byte) *jsonschema.Schema {
 	return sch
 }
 
-func unmarshalE2E(t *testing.T, jsonStr string) interface{} {
+func unmarshalE2E(t *testing.T, jsonStr string) any {
 	t.Helper()
 	v, err := jsonschema.UnmarshalJSON(strings.NewReader(jsonStr))
 	if err != nil {

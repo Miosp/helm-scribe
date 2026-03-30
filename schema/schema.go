@@ -10,7 +10,7 @@ import (
 
 func Generate(nodes []*model.ValueNode) ([]byte, error) {
 	props, req := buildPropertiesWithRequired(nodes)
-	schema := map[string]interface{}{
+	schema := map[string]any{
 		"$schema":    "https://json-schema.org/draft-07/schema#",
 		"type":       "object",
 		"properties": props,
@@ -25,8 +25,8 @@ func Generate(nodes []*model.ValueNode) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]interface{}, []string) {
-	props := make(map[string]interface{})
+func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]any, []string) {
+	props := make(map[string]any)
 	var req []string
 	for _, n := range nodes {
 		schema, hasRequired := nodeSchema(n)
@@ -40,8 +40,8 @@ func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]interface
 
 // nodeSchema returns the JSON Schema for a single node and whether the node
 // has required content (non-null default or required descendants).
-func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
-	s := make(map[string]interface{})
+func nodeSchema(n *model.ValueNode) (map[string]any, bool) {
+	s := make(map[string]any)
 
 	if n.Description != "" {
 		s["description"] = n.Description
@@ -79,7 +79,7 @@ func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 	case isArray:
 		setType(s, "array", n.Nullable)
 		if baseType != "object" {
-			itemSchema := make(map[string]interface{})
+			itemSchema := make(map[string]any)
 			setType(itemSchema, baseType, n.ItemNullable)
 			s["items"] = itemSchema
 		}
@@ -104,7 +104,7 @@ func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 		s["deprecated"] = true
 	}
 	if n.Example != "" {
-		s["examples"] = []interface{}{convertValue(n.Example, baseType)}
+		s["examples"] = []any{convertValue(n.Example, baseType)}
 	}
 
 	if n.Default != nil {
@@ -114,7 +114,7 @@ func nodeSchema(n *model.ValueNode) (map[string]interface{}, bool) {
 	return s, hasRequired && !n.Nullable
 }
 
-func setType(s map[string]interface{}, typ string, nullable bool) {
+func setType(s map[string]any, typ string, nullable bool) {
 	if nullable {
 		s["type"] = []string{typ, "null"}
 	} else {
@@ -122,15 +122,15 @@ func setType(s map[string]interface{}, typ string, nullable bool) {
 	}
 }
 
-func convertEnum(values []string, baseType string) []interface{} {
-	result := make([]interface{}, len(values))
+func convertEnum(values []string, baseType string) []any {
+	result := make([]any, len(values))
 	for i, v := range values {
 		result[i] = convertValue(v, baseType)
 	}
 	return result
 }
 
-func convertValue(val, baseType string) interface{} {
+func convertValue(val, baseType string) any {
 	switch baseType {
 	case "integer":
 		if n, err := strconv.ParseInt(val, 10, 64); err == nil {
@@ -148,8 +148,8 @@ func convertValue(val, baseType string) interface{} {
 	return val
 }
 
-func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
-	result := map[string]interface{}{
+func buildItemSchema(items []*model.ItemDef) map[string]any {
+	result := map[string]any{
 		"type": "object",
 	}
 
@@ -183,21 +183,21 @@ func buildItemSchema(items []*model.ItemDef) map[string]interface{} {
 		}
 	}
 
-	properties := make(map[string]interface{})
+	properties := make(map[string]any)
 	for _, name := range order {
 		info := props[name]
 		if len(info.children) > 0 {
-			properties[name] = map[string]interface{}{
+			properties[name] = map[string]any{
 				"type":  "array",
 				"items": buildItemSchema(info.children),
 			}
 		} else {
 			baseType, nullable, isArray, itemNullable := parseItemType(info.typ)
-			p := make(map[string]interface{})
+			p := make(map[string]any)
 			if isArray {
 				setType(p, "array", nullable)
 				if baseType != "object" {
-					itemSchema := make(map[string]interface{})
+					itemSchema := make(map[string]any)
 					setType(itemSchema, baseType, itemNullable)
 					p["items"] = itemSchema
 				}

@@ -12,7 +12,7 @@ type ValueNode struct {
 	Path        string // dot-notation: "image.repository"
 	Description string
 	Type        string // inferred from value
-	Default     interface{}
+	Default     any
 	Nullable    bool
 	// ItemNullable indicates array items are nullable (e.g. string?[]). Only meaningful when Type ends in "[]".
 	ItemNullable bool

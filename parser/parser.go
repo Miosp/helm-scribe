@@ -168,7 +168,7 @@ func inferScalarType(node *yaml.Node) string {
 	return "string"
 }
 
-func decodeScalar(node *yaml.Node) interface{} {
+func decodeScalar(node *yaml.Node) any {
 	if node.Tag == "!!null" || node.Value == "null" || node.Value == "~" {
 		return nil
 	}
@@ -177,7 +177,7 @@ func decodeScalar(node *yaml.Node) interface{} {
 		return v
 	}
 	if node.Tag == "!!int" {
-		v, _ := strconv.ParseInt(node.Value, 10, 64)
+		v, _ := strconv.ParseInt(node.Value, 10, 0)
 		return int(v)
 	}
 	if node.Tag == "!!float" {
@@ -187,16 +187,16 @@ func decodeScalar(node *yaml.Node) interface{} {
 	return node.Value
 }
 
-func decodeSequence(node *yaml.Node) interface{} {
+func decodeSequence(node *yaml.Node) any {
 	if len(node.Content) == 0 {
-		return []interface{}{}
+		return []any{}
 	}
-	var items []interface{}
+	var items []any
 	for _, item := range node.Content {
 		switch item.Kind {
 		case yaml.MappingNode:
 			// Non-scalar items — store raw string representation
-			var v interface{}
+			var v any
 			_ = item.Decode(&v)
 			items = append(items, v)
 		default:
