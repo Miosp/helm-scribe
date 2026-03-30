@@ -349,6 +349,14 @@ func TestGenerate_Phase2AnnotationsNotRendered(t *testing.T) {
 	assertRowContains(t, result, "`display`", "Display")
 }
 
+func TestInsertIntoReadme_ReversedMarkers(t *testing.T) {
+	existing := "# Chart\n<!-- helm-scribe:end -->\nold\n<!-- helm-scribe:start -->\n"
+	_, err := InsertIntoReadme(existing, "new")
+	if err == nil {
+		t.Error("expected error when end marker appears before start marker")
+	}
+}
+
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
 	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
 	_, err := InsertIntoReadme(existing, "new")

@@ -193,6 +193,9 @@ func InsertIntoReadme(existing, content string) (string, error) {
 	if startIdx == -1 || endIdx == -1 {
 		return "", errors.New("helm-scribe markers not found in README; add <!-- helm-scribe:start --> and <!-- helm-scribe:end --> markers")
 	}
+	if endIdx < startIdx+len(markerStart) {
+		return "", errors.New("helm-scribe end marker appears before start marker in README")
+	}
 
 	var b strings.Builder
 	b.WriteString(existing[:startIdx])
