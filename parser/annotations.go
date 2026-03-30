@@ -9,9 +9,8 @@ import (
 
 // Annotations holds the parsed result of a comment block.
 type Annotations struct {
-	Description  string
-	Section      string
-	Skip         bool
+	Description string
+	Skip        bool
 	Type         string
 	Nullable     bool
 	ItemNullable bool
@@ -39,7 +38,6 @@ func ParseAnnotations(raw string) Annotations {
 		line = strings.TrimSpace(line)
 
 		if strings.HasPrefix(line, "@section ") {
-			ann.Section = strings.TrimPrefix(line, "@section ")
 			continue
 		}
 		if line == "@skip" {
