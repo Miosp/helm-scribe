@@ -173,6 +173,8 @@ func formatDefault(val any, truncateLen int) string {
 		} else {
 			return "See values.yaml"
 		}
+	case map[string]any:
+		return "See values.yaml"
 	}
 
 	if truncateLen > 0 && len(s) > truncateLen {

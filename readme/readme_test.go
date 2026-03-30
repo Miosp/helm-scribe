@@ -167,6 +167,7 @@ func TestFormatDefault_Types(t *testing.T) {
 		{"string", "hello", "`\"hello\"`"},
 		{"empty_array", []any{}, "`[]`"},
 		{"non_empty_array", []any{"a", "b"}, "See values.yaml"},
+		{"map", map[string]any{"k": "v"}, "See values.yaml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
