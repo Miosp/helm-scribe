@@ -146,6 +146,14 @@ func TestInsertIntoReadme_NoMarkers(t *testing.T) {
 	}
 }
 
+func TestGenerate_PipeInDefaultAndDescription(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "sep", Description: "Use a|b format", Default: "x|y", Section: "S"},
+	}
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, `a\|b`, `x\|y`)
+}
+
 func TestFormatDefault_Types(t *testing.T) {
 	tests := []struct {
 		name string

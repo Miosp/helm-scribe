@@ -59,8 +59,8 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 			rows = append(rows, tableRow{
 				key:         fmt.Sprintf("`%s`", n.Path),
 				typ:         typStr,
-				description: desc,
-				def:         defStr,
+				description: escapePipe(desc),
+				def:         escapePipe(defStr),
 			})
 		}
 
@@ -179,6 +179,10 @@ func formatDefault(val any, truncateLen int) string {
 		return "See values.yaml"
 	}
 	return fmt.Sprintf("`%s`", s)
+}
+
+func escapePipe(s string) string {
+	return strings.ReplaceAll(s, "|", "\\|")
 }
 
 const (
