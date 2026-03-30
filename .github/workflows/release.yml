@@ -28,7 +28,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Summary
         run: |
-          echo '## Release Artifacts' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ls -lh dist/*.tar.gz dist/*.zip 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || echo 'No archives found' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tag="${GITHUB_REF_NAME}"
+          count=$(find dist -name '*.tar.gz' -o -name '*.zip' | wc -l)
+          {
+            echo "### Release ${tag}"
+            echo ""
+            echo "**${count}** artifacts built:"
+            echo ""
+            echo "| Archive | Size |"
+            echo "|---------|------|"
+            find dist \( -name '*.tar.gz' -o -name '*.zip' \) -printf '%f\t%s\n' | \
+              awk -F'\t' '{ printf "| `%s` | %.1f MB |\n", $1, $2/1048576 }'
+          } >> "$GITHUB_STEP_SUMMARY"

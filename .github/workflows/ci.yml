@@ -32,11 +32,26 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: |
-          go test -race -v ./... 2>&1 | tee test-output.txt
-          echo '## Test Results' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E '^(ok|FAIL|---|\?)' test-output.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go test -race -count=1 -json ./... 2>&1 | tee test-output.json
+          passed=$(grep -c '"Test".*"Action":"pass"' test-output.json || true)
+          failed=$(grep -c '"Test".*"Action":"fail"' test-output.json || true)
+          packages=$(grep -c '"Action":"pass","Package"' test-output.json || true)
+          {
+            echo "### Test Results"
+            echo ""
+            if [ "$failed" -eq 0 ]; then
+              echo "All **${passed}** tests passed across **${packages}** packages."
+            else
+              echo "**${failed}** failed, **${passed}** passed across **${packages}** packages."
+              echo ""
+              echo "<details><summary>Failed tests</summary>"
+              echo ""
+              echo '```'
+              grep '"Action":"fail"' test-output.json | grep '"Test"' | jq -r '"\(.Package) / \(.Test)"'
+              echo '```'
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build
@@ -49,7 +64,9 @@ jobs:
       - name: Build binary
         run: |
           go build -o helm-scribe .
-          echo '## Build' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ls -lh helm-scribe >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          size=$(du -h helm-scribe | cut -f1)
+          {
+            echo "### Build"
+            echo ""
+            echo "Binary: \`helm-scribe\` (${size})"
+          } >> "$GITHUB_STEP_SUMMARY"
