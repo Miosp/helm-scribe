@@ -87,7 +87,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	if f.Changed("truncate-length") {
 		cfg.TruncateLength = truncateLength
 	}
-	if headingLevel > 0 {
+	if f.Changed("heading-level") {
 		cfg.HeadingLevel = headingLevel
 	}
 	schemaFile, _ := f.GetString("schema-file")
@@ -97,20 +97,24 @@ func execute(cmd *cobra.Command, args []string) error {
 	if schemaFile != "" {
 		cfg.SchemaFile = schemaFile
 	}
-	cfg.DryRun = dryRun
-	cfg.NoPrettyPrint = noPretty
-	typeColumn, _ := f.GetBool("type-column")
-	if typeColumn {
-		cfg.TypeColumn = true
+	if f.Changed("dry-run") {
+		cfg.DryRun = dryRun
+	}
+	if f.Changed("no-pretty") {
+		cfg.NoPrettyPrint = noPretty
+	}
+	if f.Changed("type-column") {
+		typeColumn, _ := f.GetBool("type-column")
+		cfg.TypeColumn = typeColumn
 	}
 	if schemaOnly && readmeOnly {
 		return fmt.Errorf("--schema-only and --readme-only are mutually exclusive")
 	}
 	cfg.SchemaOnly = schemaOnly
 	cfg.ReadmeOnly = readmeOnly
-	strict, _ := f.GetBool("strict")
-	if strict {
-		cfg.Strict = true
+	if f.Changed("strict") {
+		strict, _ := f.GetBool("strict")
+		cfg.Strict = strict
 	}
 
 	valuesPath := filepath.Join(chartDir, cfg.ValuesFile)
