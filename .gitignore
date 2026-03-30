@@ -27,5 +27,8 @@ go.work.sum
 # dotfiles and dotdirs
 .*
 !.gitignore
+!.github/
+!.golangci.yml
+!.goreleaser.yml
 helm-scribe
 docs/
