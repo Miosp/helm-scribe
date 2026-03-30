@@ -32,7 +32,8 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: |
-          go test -race -count=1 -json ./... > test-output.json
+          set -euo pipefail
+          go test -race -count=1 -json ./... | tee test-output.json
           passed=$(jq -s '[.[] | select(.Action == "pass" and .Test)] | length' test-output.json)
           failed=$(jq -s '[.[] | select(.Action == "fail" and .Test)] | length' test-output.json)
           packages=$(jq -s '[.[] | select(.Action == "pass" and (.Test | not))] | length' test-output.json)
@@ -52,8 +53,6 @@ jobs:
               echo "</details>"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          # Fail the step if any test failed
-          [ "$failed" -eq 0 ]
 
   build:
     name: Build
