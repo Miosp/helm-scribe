@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -json ./... | tee test-output.json
+          passed=$(jq -s '[.[] | select(.Action == "pass" and .Test)] | length' test-output.json)
+          failed=$(jq -s '[.[] | select(.Action == "fail" and .Test)] | length' test-output.json)
+          packages=$(jq -s '[.[] | select(.Action == "pass" and (.Test | not))] | length' test-output.json)
+          {
+            echo "### Test Results"
+            echo ""
+            if [ "$failed" -eq 0 ]; then
+              echo "All **${passed}** tests passed across **${packages}** packages."
+            else
+              echo "**${failed}** failed, **${passed}** passed across **${packages}** packages."
+              echo ""
+              echo "<details><summary>Failed tests</summary>"
+              echo ""
+              echo '```'
+              jq -rs '[.[] | select(.Action == "fail" and .Test)] | .[] | "\(.Package) / \(.Test)"' test-output.json
+              echo '```'
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build binary
+        run: |
+          go build -o helm-scribe .
+          size=$(du -h helm-scribe | cut -f1)
+          {
+            echo "### Build"
+            echo ""
+            echo "Binary: \`helm-scribe\` (${size})"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,7 @@
 # helm-scribe
 
+[![CI](https://github.com/Miosp/helm-scribe/actions/workflows/ci.yml/badge.svg)](https://github.com/Miosp/helm-scribe/actions/workflows/ci.yml)
+
 A CLI tool that generates a parameters table and JSON Schema from Helm chart `values.yaml` files.
 
 ## How it works
@@ -250,3 +252,10 @@ With `--type-column`, an additional column is included:
 ```
 
 And a `values.schema.json` with type definitions, nullable types, array item schemas, required field constraints, enum/min/max/pattern validation, and deprecation markers.
+
+## Releasing
+
+1. Tag a commit on master: `git tag v0.1.0`
+2. Push the tag: `git push origin v0.1.0`
+3. GitHub Actions builds cross-platform binaries and creates a draft release
+4. Review the draft release on GitHub and publish it when ready
