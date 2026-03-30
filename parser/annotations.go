@@ -105,8 +105,8 @@ func ParseAnnotations(raw string) Annotations {
 	return ann
 }
 
-func parseTypeExpr(expr string) (typ string, nullable bool, itemNullable bool) {
-	expr = strings.TrimSpace(expr)
+func parseTypeExpr(raw string) (typ string, nullable bool, itemNullable bool) {
+	expr := strings.TrimSpace(raw)
 
 	// Outer nullable: trailing ? (after any [])
 	if strings.HasSuffix(expr, "?") {
@@ -126,6 +126,11 @@ func parseTypeExpr(expr string) (typ string, nullable bool, itemNullable bool) {
 		expr = strings.TrimSuffix(expr, "?")
 	}
 
+	// Empty base type means the expression was nonsensical (e.g. "?", "[]", "??").
+	// Return the raw input so validateType can warn about it.
+	if expr == "" {
+		return strings.TrimSpace(raw), false, false
+	}
 	if isArray {
 		return expr + "[]", nullable, itemNullable
 	}

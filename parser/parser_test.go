@@ -308,3 +308,31 @@ func TestParse_Phase2Annotations(t *testing.T) {
 		t.Errorf("extraConfig defaultOverride: got %v", nodes[5].DefaultOverride)
 	}
 }
+
+func TestParse_NonsensicalTypeWarns(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"bare question mark", "# @type ?\nkey: val\n"},
+		{"empty array", "# @type []\nkey: val\n"},
+		{"double question mark", "# @type ??\nkey: val\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, warnings, err := Parse([]byte(tt.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			hasWarning := false
+			for _, w := range warnings {
+				if strings.Contains(w, "unknown @type") {
+					hasWarning = true
+				}
+			}
+			if !hasWarning {
+				t.Errorf("expected unknown @type warning for %q, got: %v", tt.input, warnings)
+			}
+		})
+	}
+}
