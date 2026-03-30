@@ -254,6 +254,101 @@ func TestGenerate_NoPrettyPrint(t *testing.T) {
 	})
 }
 
+func TestGenerate_TypeColumn(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
+		{Path: "port", Description: "Port", Type: "integer", Default: 80, Section: "S"},
+		{Path: "label", Description: "Label", Type: "string", Nullable: true, Default: nil, Section: "S"},
+		{Path: "tags", Description: "Tags", Type: "string[]", Default: []interface{}{}, Section: "S"},
+	}
+
+	opts := DefaultOptions()
+	opts.TypeColumn = true
+	result := Generate(nodes, opts)
+
+	if !strings.Contains(result, "| Type ") {
+		t.Errorf("missing Type column header, got:\n%s", result)
+	}
+
+	assertRowContains(t, result, "`name`", "`string`", "App name")
+	assertRowContains(t, result, "`port`", "`integer`", "Port")
+	assertRowContains(t, result, "`label`", "`string?`", "Label")
+	assertRowContains(t, result, "`tags`", "`string[]`", "Tags")
+}
+
+func TestGenerate_TypeColumnDisabled(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "name", Description: "App name", Type: "string", Default: "app", Section: "S"},
+	}
+
+	opts := DefaultOptions()
+	result := Generate(nodes, opts)
+
+	if strings.Contains(result, "| Type ") {
+		t.Error("Type column should not appear when disabled")
+	}
+}
+
+func TestGenerate_DeprecatedPrefix(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Path: "old", Description: "Old setting", Type: "boolean", Default: true, Section: "S",
+			Deprecated: "Use newSetting instead"},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, "`old`", "(DEPRECATED) Old setting")
+}
+
+func TestGenerate_DefaultOverride(t *testing.T) {
+	override := "See values.yaml"
+	nodes := []*model.ValueNode{
+		{Path: "config", Description: "Config", Type: "object", Default: nil, Section: "S",
+			DefaultOverride: &override},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+	assertRowContains(t, result, "`config`", "`See values.yaml`")
+	if strings.Contains(result, "`null`") {
+		t.Errorf("default override should replace null display, got:\n%s", result)
+	}
+}
+
+func TestGenerate_Phase2AnnotationsNotRendered(t *testing.T) {
+	min, max := float64(1), float64(100)
+	nodes := []*model.ValueNode{
+		{Path: "policy", Description: "Pull policy", Type: "string", Default: "Always",
+			Enum: []string{"Always", "IfNotPresent", "Never"}, Section: "S"},
+		{Path: "port", Description: "Port", Type: "integer", Default: 80,
+			Min: &min, Max: &max, Section: "S"},
+		{Path: "name", Description: "Name", Type: "string", Default: "app",
+			Pattern: "^[a-z]+$", Section: "S"},
+		{Path: "display", Description: "Display", Type: "string", Default: "",
+			Example: "my-app", Section: "S"},
+	}
+
+	result := Generate(nodes, DefaultOptions())
+
+	// These annotations should NOT appear in the README table
+	if strings.Contains(result, "Always, IfNotPresent") || strings.Contains(result, "@enum") {
+		t.Errorf("enum values should not be rendered in README table")
+	}
+	if strings.Contains(result, "@min") || strings.Contains(result, "@max") {
+		t.Errorf("min/max annotations should not be rendered in README table")
+	}
+	if strings.Contains(result, "@pattern") || strings.Contains(result, "^[a-z]+$") {
+		t.Errorf("pattern should not be rendered in README table")
+	}
+	if strings.Contains(result, "@example") || strings.Contains(result, "my-app") {
+		t.Errorf("example should not be rendered in README table")
+	}
+
+	// But the descriptions and defaults should still be there
+	assertRowContains(t, result, "`policy`", "Pull policy", "`\"Always\"`")
+	assertRowContains(t, result, "`port`", "Port", "`80`")
+	assertRowContains(t, result, "`name`", "Name", "`\"app\"`")
+	assertRowContains(t, result, "`display`", "Display")
+}
+
 func TestInsertIntoReadme_OnlyStartMarker(t *testing.T) {
 	existing := "# Chart\n<!-- helm-scribe:start -->\ncontent\n"
 	_, err := InsertIntoReadme(existing, "new")

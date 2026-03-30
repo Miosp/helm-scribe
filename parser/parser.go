@@ -132,6 +132,13 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 				n.Type = "object[]"
 			}
 		}
+		n.Enum = ann.Enum
+		n.Min = ann.Min
+		n.Max = ann.Max
+		n.Deprecated = ann.Deprecated
+		n.DefaultOverride = ann.DefaultOverride
+		n.Example = ann.Example
+		n.Pattern = ann.Pattern
 		if n.Type == "null" && ann.Type == "" {
 			*warnings = append(*warnings, fmt.Sprintf("key %q is null with no @type; schema will accept any value", n.Path))
 		}

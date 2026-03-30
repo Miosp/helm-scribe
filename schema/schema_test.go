@@ -991,6 +991,331 @@ func TestGenerate_ItemWithNullableArray(t *testing.T) {
 	}
 }
 
+func TestGenerate_Enum(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "policy", Path: "policy", Type: "string", Default: "Always",
+			Enum: []string{"Always", "IfNotPresent", "Never"}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "policy")
+	enumVal, ok := p["enum"].([]interface{})
+	if !ok {
+		t.Fatalf("enum missing, got %v", p["enum"])
+	}
+	if len(enumVal) != 3 || enumVal[0] != "Always" {
+		t.Errorf("enum: got %v", enumVal)
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"policy": "IfNotPresent"}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid enum value rejected: %v", err)
+	}
+
+	invalid := unmarshalDoc(t, `{"policy": "Unknown"}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("invalid enum value should be rejected")
+	}
+}
+
+func TestGenerate_EnumInteger(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "level", Path: "level", Type: "integer", Default: 1,
+			Enum: []string{"1", "2", "3"}},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "level")
+	enumVal := p["enum"].([]interface{})
+	if enumVal[0] != float64(1) {
+		t.Errorf("enum[0]: got %v (%T), want numeric 1", enumVal[0], enumVal[0])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"level": 2}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid enum rejected: %v", err)
+	}
+	invalid := unmarshalDoc(t, `{"level": 5}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("out-of-enum value should be rejected")
+	}
+}
+
+func TestGenerate_MinMax(t *testing.T) {
+	min, max := float64(1), float64(65535)
+	nodes := []*model.ValueNode{
+		{Key: "port", Path: "port", Type: "integer", Default: 80,
+			Min: &min, Max: &max},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "port")
+	if p["minimum"] != float64(1) {
+		t.Errorf("minimum: got %v", p["minimum"])
+	}
+	if p["maximum"] != float64(65535) {
+		t.Errorf("maximum: got %v", p["maximum"])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"port": 8080}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid port rejected: %v", err)
+	}
+	tooLow := unmarshalDoc(t, `{"port": 0}`)
+	if err := sch.Validate(tooLow); err == nil {
+		t.Error("port below minimum should be rejected")
+	}
+	tooHigh := unmarshalDoc(t, `{"port": 70000}`)
+	if err := sch.Validate(tooHigh); err == nil {
+		t.Error("port above maximum should be rejected")
+	}
+}
+
+func TestGenerate_Pattern(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "my-app",
+			Pattern: "^[a-z][a-z0-9-]*$"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "name")
+	if p["pattern"] != "^[a-z][a-z0-9-]*$" {
+		t.Errorf("pattern: got %v", p["pattern"])
+	}
+
+	sch := compileSchema(t, data)
+	valid := unmarshalDoc(t, `{"name": "my-app"}`)
+	if err := sch.Validate(valid); err != nil {
+		t.Errorf("valid name rejected: %v", err)
+	}
+	invalid := unmarshalDoc(t, `{"name": "My_App!"}`)
+	if err := sch.Validate(invalid); err == nil {
+		t.Error("invalid name should be rejected")
+	}
+}
+
+func TestGenerate_Deprecated(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "old", Path: "old", Type: "boolean", Default: true,
+			Deprecated: "Use newSetting instead"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "old")
+	if p["deprecated"] != true {
+		t.Errorf("deprecated: got %v", p["deprecated"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_Example(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "",
+			Example: "my-custom-app"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "name")
+	examples, ok := p["examples"].([]interface{})
+	if !ok || len(examples) != 1 || examples[0] != "my-custom-app" {
+		t.Errorf("examples: got %v", p["examples"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_ExampleInteger(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "port", Path: "port", Type: "integer", Default: 80,
+			Example: "8080"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "port")
+	examples := p["examples"].([]interface{})
+	if examples[0] != float64(8080) {
+		t.Errorf("example: got %v (%T), want numeric 8080", examples[0], examples[0])
+	}
+}
+
+func TestGenerate_DeprecatedBare(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "old", Path: "old", Type: "boolean", Default: true,
+			Deprecated: "deprecated"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "old")
+	if p["deprecated"] != true {
+		t.Errorf("deprecated: got %v, want true", p["deprecated"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_MinMaxOnStringType(t *testing.T) {
+	min, max := float64(1), float64(100)
+	nodes := []*model.ValueNode{
+		{Key: "name", Path: "name", Type: "string", Default: "app",
+			Min: &min, Max: &max},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "name")
+	if p["type"] != "string" {
+		t.Errorf("type: got %v", p["type"])
+	}
+	// minimum/maximum are emitted even on string — semantically odd but valid schema
+	if p["minimum"] != float64(1) {
+		t.Errorf("minimum: got %v", p["minimum"])
+	}
+	if p["maximum"] != float64(100) {
+		t.Errorf("maximum: got %v", p["maximum"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_PatternOnNonStringType(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "port", Path: "port", Type: "integer", Default: 80,
+			Pattern: "^[0-9]+$"},
+	}
+
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "port")
+	if p["type"] != "integer" {
+		t.Errorf("type: got %v", p["type"])
+	}
+	// pattern is emitted even on integer — semantically odd but valid schema
+	if p["pattern"] != "^[0-9]+$" {
+		t.Errorf("pattern: got %v", p["pattern"])
+	}
+
+	compileSchema(t, data)
+}
+
+func TestGenerate_EnumTypeConversionFailure(t *testing.T) {
+	t.Run("non-numeric strings on integer type", func(t *testing.T) {
+		nodes := []*model.ValueNode{
+			{Key: "level", Path: "level", Type: "integer", Default: 1,
+				Enum: []string{"low", "medium", "high"}},
+		}
+
+		data, err := Generate(nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		schema := mustUnmarshal(t, data)
+		p := prop(t, schema, "level")
+		enumVal := p["enum"].([]interface{})
+		// Conversion fails, so raw strings are emitted
+		if enumVal[0] != "low" {
+			t.Errorf("enum[0]: got %v (%T), want string 'low'", enumVal[0], enumVal[0])
+		}
+
+		compileSchema(t, data)
+	})
+
+	t.Run("non-numeric strings on number type", func(t *testing.T) {
+		nodes := []*model.ValueNode{
+			{Key: "ratio", Path: "ratio", Type: "number", Default: 0.5,
+				Enum: []string{"small", "large"}},
+		}
+
+		data, err := Generate(nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		schema := mustUnmarshal(t, data)
+		p := prop(t, schema, "ratio")
+		enumVal := p["enum"].([]interface{})
+		if enumVal[0] != "small" {
+			t.Errorf("enum[0]: got %v (%T), want string 'small'", enumVal[0], enumVal[0])
+		}
+
+		compileSchema(t, data)
+	})
+
+	t.Run("non-boolean strings on boolean type", func(t *testing.T) {
+		nodes := []*model.ValueNode{
+			{Key: "flag", Path: "flag", Type: "boolean", Default: true,
+				Enum: []string{"yes", "no"}},
+		}
+
+		data, err := Generate(nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		schema := mustUnmarshal(t, data)
+		p := prop(t, schema, "flag")
+		enumVal := p["enum"].([]interface{})
+		// "yes"/"no" don't parse as booleans, so raw strings are emitted
+		if enumVal[0] != "yes" {
+			t.Errorf("enum[0]: got %v (%T), want string 'yes'", enumVal[0], enumVal[0])
+		}
+
+		compileSchema(t, data)
+	})
+}
+
 func TestGenerate_NullableObjectNoChildren(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "extra", Path: "extra", Type: "object", Nullable: true, Default: nil},
