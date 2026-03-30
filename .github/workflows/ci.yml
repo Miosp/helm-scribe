@@ -32,10 +32,10 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: |
-          go test -race -count=1 -json ./... 2>&1 | tee test-output.json
-          passed=$(grep -c '"Test".*"Action":"pass"' test-output.json || true)
-          failed=$(grep -c '"Test".*"Action":"fail"' test-output.json || true)
-          packages=$(grep -c '"Action":"pass","Package"' test-output.json || true)
+          go test -race -count=1 -json ./... > test-output.json 2>&1
+          passed=$(jq -s '[.[] | select(.Action == "pass" and .Test)] | length' test-output.json)
+          failed=$(jq -s '[.[] | select(.Action == "fail" and .Test)] | length' test-output.json)
+          packages=$(jq -s '[.[] | select(.Action == "pass" and (.Test | not))] | length' test-output.json)
           {
             echo "### Test Results"
             echo ""
@@ -47,11 +47,13 @@ jobs:
               echo "<details><summary>Failed tests</summary>"
               echo ""
               echo '```'
-              grep '"Action":"fail"' test-output.json | grep '"Test"' | jq -r '"\(.Package) / \(.Test)"'
+              jq -rs '[.[] | select(.Action == "fail" and .Test)] | .[] | "\(.Package) / \(.Test)"' test-output.json
               echo '```'
               echo "</details>"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # Fail the step if any test failed
+          [ "$failed" -eq 0 ]
 
   build:
     name: Build
