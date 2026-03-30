@@ -173,16 +173,19 @@ func decodeScalar(node *yaml.Node) any {
 		return nil
 	}
 	if node.Tag == "!!bool" {
-		v, _ := strconv.ParseBool(node.Value)
-		return v
+		if v, err := strconv.ParseBool(node.Value); err == nil {
+			return v
+		}
 	}
 	if node.Tag == "!!int" {
-		v, _ := strconv.ParseInt(node.Value, 10, 0)
-		return int(v)
+		if v, err := strconv.ParseInt(node.Value, 10, 0); err == nil {
+			return int(v)
+		}
 	}
 	if node.Tag == "!!float" {
-		v, _ := strconv.ParseFloat(node.Value, 64)
-		return v
+		if v, err := strconv.ParseFloat(node.Value, 64); err == nil {
+			return v
+		}
 	}
 	return node.Value
 }
