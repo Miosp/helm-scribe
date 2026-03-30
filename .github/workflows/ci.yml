@@ -30,7 +30,13 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - run: go test -race ./...
+      - name: Run tests
+        run: |
+          go test -race -v ./... 2>&1 | tee test-output.txt
+          echo '## Test Results' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^(ok|FAIL|---|\?)' test-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build
@@ -40,4 +46,10 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - run: go build -o helm-scribe .
+      - name: Build binary
+        run: |
+          go build -o helm-scribe .
+          echo '## Build' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh helm-scribe >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
