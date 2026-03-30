@@ -32,7 +32,7 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: |
-          go test -race -count=1 -json ./... > test-output.json 2>&1
+          go test -race -count=1 -json ./... > test-output.json
           passed=$(jq -s '[.[] | select(.Action == "pass" and .Test)] | length' test-output.json)
           failed=$(jq -s '[.[] | select(.Action == "fail" and .Test)] | length' test-output.json)
           packages=$(jq -s '[.[] | select(.Action == "pass" and (.Test | not))] | length' test-output.json)
