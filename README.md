@@ -32,6 +32,8 @@ Or, if you wish to install with go:
 go install github.com/miosp/helm-scribe@latest
 ```
 
+For more information check out the [wiki tab](https://github.com/Miosp/helm-scribe/wiki).
+
 ## Add README markers
 
 Insert these where the parameters table should appear:
