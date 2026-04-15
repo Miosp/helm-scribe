@@ -20,6 +20,8 @@ Place these markers in your README where the table should appear:
 <!-- helm-scribe:end -->
 ```
 
+For more information check out the [wiki tab](https://github.com/Miosp/helm-scribe/wiki).
+
 # Quickstart
 
 ## Installation
@@ -31,8 +33,6 @@ Or, if you wish to install with go:
 ```sh
 go install github.com/miosp/helm-scribe@latest
 ```
-
-For more information check out the [wiki tab](https://github.com/Miosp/helm-scribe/wiki).
 
 ## Add README markers
 
