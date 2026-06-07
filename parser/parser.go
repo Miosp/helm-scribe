@@ -210,14 +210,14 @@ func decodeSequence(node *yaml.Node) any {
 }
 
 var validBaseTypes = map[string]bool{
-	"string": true, "integer": true, "number": true, "boolean": true, "object": true,
+	"string": true, "integer": true, "number": true, "boolean": true, "object": true, "any": true,
 }
 
 func validateType(typ, path string) string {
 	base := strings.TrimSuffix(typ, "[]")
 	base = strings.TrimSuffix(base, "?")
 	if !validBaseTypes[base] {
-		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, or object", path, typ)
+		return fmt.Sprintf("key %q has unknown @type %q; expected string, integer, number, boolean, object, or any", path, typ)
 	}
 	return ""
 }

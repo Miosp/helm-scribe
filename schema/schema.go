@@ -78,7 +78,7 @@ func nodeSchema(n *model.ValueNode) (map[string]any, bool) {
 
 	case isArray:
 		setType(s, "array", n.Nullable)
-		if baseType != "object" {
+		if baseType != "object" && baseType != "any" {
 			itemSchema := make(map[string]any)
 			setType(itemSchema, baseType, n.ItemNullable)
 			s["items"] = itemSchema
@@ -115,6 +115,10 @@ func nodeSchema(n *model.ValueNode) (map[string]any, bool) {
 }
 
 func setType(s map[string]any, typ string, nullable bool) {
+	// "any" means no type constraint: an empty schema accepts any value.
+	if typ == "any" {
+		return
+	}
 	if nullable {
 		s["type"] = []string{typ, "null"}
 	} else {
@@ -196,7 +200,7 @@ func buildItemSchema(items []*model.ItemDef) map[string]any {
 			p := make(map[string]any)
 			if isArray {
 				setType(p, "array", nullable)
-				if baseType != "object" {
+				if baseType != "object" && baseType != "any" {
 					itemSchema := make(map[string]any)
 					setType(itemSchema, baseType, itemNullable)
 					p["items"] = itemSchema

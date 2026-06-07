@@ -309,6 +309,20 @@ func TestParse_Phase2Annotations(t *testing.T) {
 	}
 }
 
+func TestParse_AnyTypeNoWarning(t *testing.T) {
+	for _, input := range []string{"# @type any\nkey: val\n", "# @type any[]\nkey: []\n"} {
+		_, warnings, err := Parse([]byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, w := range warnings {
+			if strings.Contains(w, "unknown @type") {
+				t.Errorf("any type should not warn, got: %v", warnings)
+			}
+		}
+	}
+}
+
 func TestParse_NonsensicalTypeWarns(t *testing.T) {
 	tests := []struct {
 		name  string

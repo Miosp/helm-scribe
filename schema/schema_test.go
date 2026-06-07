@@ -250,6 +250,66 @@ func TestGenerate_NullableItemType(t *testing.T) {
 	}
 }
 
+func TestGenerate_AnyType(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "extra", Path: "extra", Type: "any", Description: "arbitrary value"},
+	}
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "extra")
+	if _, hasType := p["type"]; hasType {
+		t.Errorf("any type should not emit a type field, got %v", p["type"])
+	}
+	if p["description"] != "arbitrary value" {
+		t.Errorf("description: got %v", p["description"])
+	}
+}
+
+func TestGenerate_AnyArrayType(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{Key: "items", Path: "items", Type: "any[]", Default: []any{}},
+	}
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "items")
+	if p["type"] != "array" {
+		t.Errorf("type: got %v", p["type"])
+	}
+	if _, hasItems := p["items"]; hasItems {
+		t.Errorf("any[] should not constrain items, got %v", p["items"])
+	}
+}
+
+func TestGenerate_AnyItemType(t *testing.T) {
+	nodes := []*model.ValueNode{
+		{
+			Key: "list", Path: "list", Type: "object[]",
+			Default: []any{},
+			Items: []*model.ItemDef{
+				{Path: "value", Type: "any"},
+			},
+		},
+	}
+	data, err := Generate(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := mustUnmarshal(t, data)
+	p := prop(t, schema, "list")
+	items := p["items"].(map[string]any)
+	props := items["properties"].(map[string]any)
+	value := props["value"].(map[string]any)
+	if _, hasType := value["type"]; hasType {
+		t.Errorf("any item should not emit a type field, got %v", value["type"])
+	}
+}
+
 func TestGenerate_NullWithoutType(t *testing.T) {
 	nodes := []*model.ValueNode{
 		{Key: "unknown", Path: "unknown", Type: "null", Default: nil},
