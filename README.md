@@ -86,5 +86,3 @@ This writes a parameters table into your README and generates `values.schema.jso
 `reconcileInterval` is excluded by `@skip`.
 
 **Schema:** A JSON Schema draft-07 file with types, `enum`, `minimum`/`maximum`, nullable fields, and required-field logic. Helm validates values against this schema during `helm install` and `helm upgrade`.
-3. GitHub Actions builds cross-platform binaries and creates a draft release
-4. Review the draft release on GitHub and publish it when ready
