@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/miosp/helm-scribe/kube"
 	"github.com/miosp/helm-scribe/model"
 )
 
@@ -18,11 +19,31 @@ func Generate(nodes []*model.ValueNode) ([]byte, error) {
 	if len(req) > 0 {
 		schema["required"] = req
 	}
+	if refs := collectK8sRefs(nodes); len(refs) > 0 {
+		defs, err := kube.Closure(refs...)
+		if err != nil {
+			return nil, err
+		}
+		schema["definitions"] = defs
+	}
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		return nil, err
 	}
 	return append(data, '\n'), nil
+}
+
+func collectK8sRefs(nodes []*model.ValueNode) []string {
+	var refs []string
+	for _, n := range nodes {
+		if n.K8sRef != "" {
+			refs = append(refs, n.K8sRef)
+		}
+		if len(n.Children) > 0 && n.K8sRef == "" {
+			refs = append(refs, collectK8sRefs(n.Children)...)
+		}
+	}
+	return refs
 }
 
 func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]any, []string) {
@@ -41,6 +62,10 @@ func buildPropertiesWithRequired(nodes []*model.ValueNode) (map[string]any, []st
 // nodeSchema returns the JSON Schema for a single node and whether the node
 // has required content (non-null default or required descendants).
 func nodeSchema(n *model.ValueNode) (map[string]any, bool) {
+	if n.K8sRef != "" {
+		return k8sNodeSchema(n), false
+	}
+
 	s := make(map[string]any)
 
 	if n.Description != "" {
@@ -245,4 +270,24 @@ func splitItemPath(path string) (top, rest string) {
 		return path[:idx], path[idx+1:]
 	}
 	return path, ""
+}
+
+func k8sNodeSchema(n *model.ValueNode) map[string]any {
+	ref := map[string]any{"$ref": "#/definitions/" + n.K8sRef}
+	if strings.HasSuffix(n.Type, "[]") {
+		s := make(map[string]any)
+		setType(s, "array", n.Nullable)
+		var items map[string]any
+		if n.ItemNullable {
+			items = map[string]any{"anyOf": []any{ref, map[string]any{"type": "null"}}}
+		} else {
+			items = ref
+		}
+		s["items"] = items
+		return s
+	}
+	if n.Nullable {
+		return map[string]any{"anyOf": []any{ref, map[string]any{"type": "null"}}}
+	}
+	return ref
 }
