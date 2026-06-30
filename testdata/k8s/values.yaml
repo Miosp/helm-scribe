@@ -1,0 +1,9 @@
+# @section Workload
+
+# Compute resources for the container.
+# @type k8s:core/v1/ResourceRequirements
+resources: {}
+
+# Pod-level security context.
+# @type k8s:core/v1/PodSecurityContext?
+securityContext:
