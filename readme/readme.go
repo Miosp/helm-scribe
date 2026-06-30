@@ -54,9 +54,13 @@ func Generate(nodes []*model.ValueNode, opts Options) string {
 			}
 			typStr := ""
 			if opts.TypeColumn {
-				typStr = fmt.Sprintf("`%s`", n.Type)
+				display := n.Type
+				if n.K8sRef != "" {
+					display = strings.TrimPrefix(n.Type, "k8s:")
+				}
+				typStr = fmt.Sprintf("`%s`", display)
 				if n.Nullable {
-					typStr = fmt.Sprintf("`%s?`", n.Type)
+					typStr = fmt.Sprintf("`%s?`", display)
 				}
 			}
 			rows = append(rows, tableRow{
@@ -131,7 +135,7 @@ func writeTable(b *strings.Builder, rows []tableRow, opts Options) {
 func flatten(nodes []*model.ValueNode) []*model.ValueNode {
 	var result []*model.ValueNode
 	for _, n := range nodes {
-		if len(n.Children) > 0 {
+		if len(n.Children) > 0 && n.K8sRef == "" {
 			result = append(result, flatten(n.Children)...)
 		} else {
 			result = append(result, n)

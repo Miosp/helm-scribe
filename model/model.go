@@ -16,6 +16,10 @@ type ValueNode struct {
 	Nullable    bool
 	// ItemNullable indicates array items are nullable (e.g. string?[]). Only meaningful when Type ends in "[]".
 	ItemNullable bool
+	// K8sRef is the resolved Kubernetes definition key (e.g.
+	// "io.k8s.api.core.v1.Container") when @type names a Kubernetes type.
+	// Empty for all other fields.
+	K8sRef string
 	Section      string
 	Skip         bool
 	Children     []*ValueNode
