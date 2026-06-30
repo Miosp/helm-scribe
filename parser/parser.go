@@ -7,9 +7,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/miosp/helm-scribe/kube"
 	"github.com/miosp/helm-scribe/model"
 	"gopkg.in/yaml.v3"
 )
+
+const k8sTypePrefix = "k8s:"
 
 type sectionMarker struct {
 	line int
@@ -119,10 +122,22 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 		}
 
 		if ann.Type != "" {
-			if w := validateType(ann.Type, n.Path); w != "" {
-				*warnings = append(*warnings, w)
+			base := strings.TrimSuffix(ann.Type, "[]")
+			if strings.HasPrefix(base, k8sTypePrefix) {
+				gvk := strings.TrimPrefix(base, k8sTypePrefix)
+				if key, err := kube.Resolve(gvk); err != nil {
+					*warnings = append(*warnings, fmt.Sprintf("key %q has %v; field will accept any object", n.Path, err))
+					n.Type = "object"
+				} else {
+					n.K8sRef = key
+					n.Type = ann.Type
+				}
+			} else {
+				if w := validateType(ann.Type, n.Path); w != "" {
+					*warnings = append(*warnings, w)
+				}
+				n.Type = ann.Type
 			}
-			n.Type = ann.Type
 			n.Nullable = ann.Nullable
 			n.ItemNullable = ann.ItemNullable
 		}
@@ -139,6 +154,16 @@ func walkMapping(node *yaml.Node, prefix string, markers []sectionMarker, warnin
 		n.DefaultOverride = ann.DefaultOverride
 		n.Example = ann.Example
 		n.Pattern = ann.Pattern
+		if n.K8sRef != "" {
+			if len(n.Enum) > 0 || n.Min != nil || n.Max != nil || n.Pattern != "" || len(n.Items) > 0 {
+				*warnings = append(*warnings, fmt.Sprintf("key %q is a Kubernetes type; @enum/@min/@max/@pattern/@item are ignored", n.Path))
+			}
+			n.Enum = nil
+			n.Min = nil
+			n.Max = nil
+			n.Pattern = ""
+			n.Items = nil
+		}
 		if n.Type == "null" && ann.Type == "" {
 			*warnings = append(*warnings, fmt.Sprintf("key %q is null with no @type; schema will accept any value", n.Path))
 		}
