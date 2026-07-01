@@ -73,6 +73,9 @@ jobs:
           grep -q "core/v1/ResourceRequirements" "$dir/README.md"
           grep -q "port" "$dir/README.md"
 
+      - name: Stage generated files as drift baseline
+        run: git add -f "${GITHUB_WORKSPACE}/.test-fixture"
+
       - name: Check mode passes on a clean tree
         id: clean
         uses: ./
