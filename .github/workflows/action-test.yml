@@ -1,0 +1,109 @@
+name: Action
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Shell checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install bats and shellcheck
+        run: sudo apt-get update && sudo apt-get install -y bats shellcheck
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+      - name: Bats
+        run: bats scripts/tests
+
+  integration:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build binary
+        run: go build -o "${RUNNER_TEMP}/helm-scribe" .
+
+      - name: Create fixture chart
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/fixture"
+          mkdir -p "$dir"
+          cat > "$dir/values.yaml" <<'YAML'
+          # @section Network
+
+          # Service port
+          # @min 1
+          # @max 65535
+          port: 80
+
+          # Compute resources
+          # @type k8s:core/v1/ResourceRequirements
+          resources: {}
+          YAML
+          cat > "$dir/README.md" <<'MD'
+          # Fixture
+
+          <!-- helm-scribe:start -->
+          <!-- helm-scribe:end -->
+          MD
+
+      - name: Generate mode writes files
+        uses: ./
+        with:
+          chart-directory: ${{ runner.temp }}/fixture
+          type-column: "true"
+          binary: ${{ runner.temp }}/helm-scribe
+
+      - name: Assert output contains the resolved Kubernetes type
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/fixture"
+          test -f "$dir/values.schema.json"
+          grep -q "core/v1/ResourceRequirements" "$dir/README.md"
+          grep -q "port" "$dir/README.md"
+
+      - name: Check mode passes on a clean tree
+        id: clean
+        uses: ./
+        with:
+          chart-directory: ${{ runner.temp }}/fixture
+          type-column: "true"
+          check: "true"
+          binary: ${{ runner.temp }}/helm-scribe
+
+      - name: Assert no drift reported
+        run: |
+          set -euo pipefail
+          test "${{ steps.clean.outputs.drift }}" = "false"
+
+      - name: Tamper with a generated file
+        run: |
+          set -euo pipefail
+          echo "stale" >> "${RUNNER_TEMP}/fixture/README.md"
+
+      - name: Check mode fails on drift
+        id: dirty
+        continue-on-error: true
+        uses: ./
+        with:
+          chart-directory: ${{ runner.temp }}/fixture
+          type-column: "true"
+          check: "true"
+          binary: ${{ runner.temp }}/helm-scribe
+
+      - name: Assert drift detected and step failed
+        run: |
+          set -euo pipefail
+          test "${{ steps.dirty.outcome }}" = "failure"
+          test "${{ steps.dirty.outputs.drift }}" = "true"
