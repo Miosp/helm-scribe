@@ -1,0 +1,195 @@
+name: helm-scribe
+description: Generate a Helm values parameters table and values.schema.json, with an optional CI check mode.
+branding:
+  icon: book-open
+  color: blue
+
+inputs:
+  chart-directory:
+    description: Directory of the Helm chart to process.
+    required: false
+    default: "."
+  values-file:
+    description: Path to the values file (maps to --values-file).
+    required: false
+    default: ""
+  readme-file:
+    description: Path to the README file (maps to --readme-file).
+    required: false
+    default: ""
+  config:
+    description: Path to the helm-scribe config file (maps to --config).
+    required: false
+    default: ""
+  truncate-length:
+    description: Max default value length before truncation (maps to --truncate-length).
+    required: false
+    default: ""
+  heading-level:
+    description: Heading level for section headers, 1-6 (maps to --heading-level).
+    required: false
+    default: ""
+  schema-file:
+    description: Path to the schema output file (maps to --schema-file).
+    required: false
+    default: ""
+  dry-run:
+    description: Print output to stdout instead of writing files (maps to --dry-run). Incompatible with check.
+    required: false
+    default: "false"
+  no-pretty:
+    description: Disable table column alignment (maps to --no-pretty).
+    required: false
+    default: "false"
+  schema-only:
+    description: Only generate the schema, skip README (maps to --schema-only).
+    required: false
+    default: "false"
+  readme-only:
+    description: Only generate the README, skip schema (maps to --readme-only).
+    required: false
+    default: "false"
+  strict:
+    description: Treat warnings as errors (maps to --strict).
+    required: false
+    default: "false"
+  type-column:
+    description: Show the type column in the README table (maps to --type-column).
+    required: false
+    default: "false"
+  version:
+    description: >-
+      helm-scribe version constraint. "0" floats within major 0; "0.3" floats
+      within 0.3; "0.3.1" pins exactly; "latest" takes the highest release.
+    required: false
+    default: "0"
+  check:
+    description: Fail the step when generated files drift from what helm-scribe produces.
+    required: false
+    default: "false"
+  binary:
+    description: >-
+      Advanced. Path to a prebuilt helm-scribe binary. When set, version
+      resolution and download are skipped and this binary is used directly.
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: The resolved release tag used, or "local" when the binary input was provided.
+    value: ${{ steps.run.outputs.version }}
+  drift:
+    description: "true or false; whether check mode found stale files."
+    value: ${{ steps.run.outputs.drift }}
+  changed-files:
+    description: Newline-separated list of files that drifted (check mode).
+    value: ${{ steps.run.outputs.changed-files }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      if: ${{ inputs.binary == '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.action_repository }}
+        CONSTRAINT: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        tags="$(gh api "repos/${REPO}/releases" --paginate \
+          -q '.[] | select(.draft==false and .prerelease==false) | .tag_name')"
+        tag="$(printf '%s\n' "${tags}" | "${{ github.action_path }}/scripts/select-version.sh" "${CONSTRAINT}")"
+        echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+    - id: download
+      if: ${{ inputs.binary == '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.action_repository }}
+        TAG: ${{ steps.resolve.outputs.tag }}
+        DEST_DIR: ${{ runner.temp }}/helm-scribe
+      run: |
+        set -euo pipefail
+        bin="$("${{ github.action_path }}/scripts/download-binary.sh")"
+        echo "bin=${bin}" >> "$GITHUB_OUTPUT"
+
+    - id: run
+      shell: bash
+      env:
+        INPUT_VALUES_FILE: ${{ inputs.values-file }}
+        INPUT_README_FILE: ${{ inputs.readme-file }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_TRUNCATE_LENGTH: ${{ inputs.truncate-length }}
+        INPUT_HEADING_LEVEL: ${{ inputs.heading-level }}
+        INPUT_SCHEMA_FILE: ${{ inputs.schema-file }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_NO_PRETTY: ${{ inputs.no-pretty }}
+        INPUT_SCHEMA_ONLY: ${{ inputs.schema-only }}
+        INPUT_README_ONLY: ${{ inputs.readme-only }}
+        INPUT_STRICT: ${{ inputs.strict }}
+        INPUT_TYPE_COLUMN: ${{ inputs.type-column }}
+        CHART_DIR: ${{ inputs.chart-directory }}
+        README_FILE: ${{ inputs.readme-file }}
+        SCHEMA_FILE: ${{ inputs.schema-file }}
+        CHECK: ${{ inputs.check }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        BINARY: ${{ inputs.binary }}
+        DOWNLOADED_BIN: ${{ steps.download.outputs.bin }}
+        RESOLVED_TAG: ${{ steps.resolve.outputs.tag }}
+      run: |
+        set -euo pipefail
+
+        if [ "${CHECK}" = "true" ] && [ "${DRY_RUN}" = "true" ]; then
+          echo "dry-run and check are incompatible: check needs files on disk to diff" >&2
+          exit 1
+        fi
+
+        if [ -n "${BINARY}" ]; then
+          bin="${BINARY}"
+          resolved="local"
+        else
+          bin="${DOWNLOADED_BIN}"
+          resolved="${RESOLVED_TAG}"
+        fi
+        echo "version=${resolved}" >> "$GITHUB_OUTPUT"
+
+        mapfile -t args < <("${{ github.action_path }}/scripts/build-args.sh")
+
+        "${bin}" "${args[@]}" "${CHART_DIR}"
+
+        if [ "${CHECK}" != "true" ]; then
+          echo "drift=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        paths=("${CHART_DIR}")
+        [ -n "${README_FILE}" ] && paths+=("${README_FILE}")
+        [ -n "${SCHEMA_FILE}" ] && paths+=("${SCHEMA_FILE}")
+
+        # Intent-to-add so newly created files show up in the diff.
+        git add --intent-to-add -- "${paths[@]}" 2>/dev/null || true
+
+        if git diff --quiet -- "${paths[@]}"; then
+          echo "drift=false" >> "$GITHUB_OUTPUT"
+          echo "changed-files=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "drift=true" >> "$GITHUB_OUTPUT"
+        {
+          echo "changed-files<<EOF"
+          git diff --name-only -- "${paths[@]}"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "### helm-scribe: generated files are out of date"
+          echo ""
+          echo "Run helm-scribe locally and commit the result."
+          echo ""
+          echo '```diff'
+          git --no-pager diff -- "${paths[@]}"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit 1
