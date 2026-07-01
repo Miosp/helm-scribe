@@ -86,3 +86,59 @@ This writes a parameters table into your README and generates `values.schema.jso
 `reconcileInterval` is excluded by `@skip`.
 
 **Schema:** A JSON Schema draft-07 file with types, `enum`, `minimum`/`maximum`, nullable fields, and required-field logic. Helm validates values against this schema during `helm install` and `helm upgrade`.
+
+# GitHub Action
+
+Run helm-scribe in CI with the [`Miosp/helm-scribe`](https://github.com/marketplace/actions/helm-scribe) Action.
+
+## Generate mode
+
+Regenerate the table and schema, then let a later step commit or open a PR:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: Miosp/helm-scribe@v0
+  with:
+    chart-directory: charts/my-app
+```
+
+## Check mode
+
+Fail a pull request when the generated files are out of date. Requires a checkout so the Action can diff the working tree:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: Miosp/helm-scribe@v0
+  with:
+    chart-directory: charts/my-app
+    check: "true"
+```
+
+## Inputs
+
+| Input             | Default | Description                                             |
+| ----------------- | ------- | ------------------------------------------------------- |
+| `chart-directory` | `.`     | Chart directory to process.                             |
+| `values-file`     | unset   | Path to the values file (`--values-file`).              |
+| `readme-file`     | unset   | Path to the README file (`--readme-file`).              |
+| `config`          | unset   | Path to the config file (`--config`).                   |
+| `truncate-length` | unset   | Max default length before truncation (`--truncate-length`). |
+| `heading-level`   | unset   | Section heading level, 1-6 (`--heading-level`).         |
+| `schema-file`     | unset   | Path to the schema output file (`--schema-file`).       |
+| `dry-run`         | `false` | Print to stdout instead of writing (`--dry-run`).       |
+| `no-pretty`       | `false` | Disable table alignment (`--no-pretty`).                |
+| `schema-only`     | `false` | Only generate the schema (`--schema-only`).             |
+| `readme-only`     | `false` | Only generate the README (`--readme-only`).             |
+| `strict`          | `false` | Treat warnings as errors (`--strict`).                  |
+| `type-column`     | `false` | Show the type column (`--type-column`).                 |
+| `version`         | `0`     | Version constraint: `0`, `0.3`, `0.3.1`, or `latest`.   |
+| `check`           | `false` | Fail when generated files drift.                        |
+| `binary`          | unset   | Advanced: use a prebuilt binary instead of downloading. |
+
+## Outputs
+
+| Output          | Description                                          |
+| --------------- | ---------------------------------------------------- |
+| `version`       | Resolved release tag used (`local` with `binary`).   |
+| `drift`         | `true`/`false`; whether check mode found stale files.|
+| `changed-files` | Newline-separated list of files that drifted.        |
