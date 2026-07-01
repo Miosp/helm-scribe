@@ -110,3 +110,45 @@ jobs:
           set -euo pipefail
           test "${{ steps.dirty.outcome }}" = "failure"
           test "${{ steps.dirty.outputs.drift }}" = "true"
+
+  download:
+    name: Download path
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create fixture chart
+        run: |
+          set -euo pipefail
+          dir="${GITHUB_WORKSPACE}/.test-fixture"
+          mkdir -p "$dir"
+          cat > "$dir/values.yaml" <<'YAML'
+          # @section Network
+
+          # Service port
+          port: 80
+          YAML
+          cat > "$dir/README.md" <<'MD'
+          # Fixture
+
+          <!-- helm-scribe:start -->
+          <!-- helm-scribe:end -->
+          MD
+
+      - name: Resolve and download a released binary, then run it
+        id: run
+        uses: ./
+        with:
+          chart-directory: ${{ github.workspace }}/.test-fixture
+          version: "0"
+
+      - name: Assert a release was resolved and files were written
+        run: |
+          set -euo pipefail
+          dir="${GITHUB_WORKSPACE}/.test-fixture"
+          test -f "$dir/values.schema.json"
+          grep -q "port" "$dir/README.md"
+          case "${{ steps.run.outputs.version }}" in
+            v0.*) ;;
+            *) echo "unexpected resolved version: ${{ steps.run.outputs.version }}" >&2; exit 1 ;;
+          esac

@@ -29,6 +29,18 @@ run_select() { printf '%s\n' "$TAGS" | "$SCRIPT" "$1"; }
   [ "$output" = "v0.3.1" ]
 }
 
+@test "bare major with a v prefix floats within that major" {
+  run run_select v0
+  [ "$status" -eq 0 ]
+  [ "$output" = "v0.10.0" ]
+}
+
+@test "major.minor with a v prefix floats within that minor" {
+  run run_select v0.3
+  [ "$status" -eq 0 ]
+  [ "$output" = "v0.3.1" ]
+}
+
 @test "exact version with v prefix returns that tag" {
   run run_select v0.3.0
   [ "$status" -eq 0 ]

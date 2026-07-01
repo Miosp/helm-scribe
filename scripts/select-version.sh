@@ -5,8 +5,8 @@
 #
 # Constraint forms:
 #   "" | "latest"  -> highest of all tags
-#   "N"            -> highest vN.*.* (major floats minor+patch)
-#   "N.M"          -> highest vN.M.* (patch floats)
+#   "N"/"vN"       -> highest vN.*.* (major floats minor+patch)
+#   "N.M"/"vN.M"   -> highest vN.M.* (patch floats)
 #   "N.M.P"/"vN.M.P" -> that exact tag
 #
 # Candidate tags are read from stdin, one per line. Non-semver lines are ignored.
@@ -46,8 +46,8 @@ case "$constraint" in
   latest)
     printf '%s\n' "${valid[@]}" | highest
     ;;
-  [0-9]* | [0-9]*.[0-9]*)
-    escaped="$(printf '%s' "$constraint" | sed 's/\./\\./g')"
+  [0-9]* | [0-9]*.[0-9]* | v[0-9]* | v[0-9]*.[0-9]*)
+    escaped="$(printf '%s' "${constraint#v}" | sed 's/\./\\./g')"
     filter="^v${escaped}\\."
     matched=()
     for t in "${valid[@]}"; do

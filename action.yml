@@ -93,7 +93,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-        REPO: ${{ github.action_repository }}
+        REPO: ${{ github.action_repository || github.repository }}
         CONSTRAINT: ${{ inputs.version }}
       run: |
         set -euo pipefail
@@ -107,7 +107,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-        REPO: ${{ github.action_repository }}
+        REPO: ${{ github.action_repository || github.repository }}
         TAG: ${{ steps.resolve.outputs.tag }}
         DEST_DIR: ${{ runner.temp }}/helm-scribe
       run: |
@@ -131,8 +131,6 @@ runs:
         INPUT_STRICT: ${{ inputs.strict }}
         INPUT_TYPE_COLUMN: ${{ inputs.type-column }}
         CHART_DIR: ${{ inputs.chart-directory }}
-        README_FILE: ${{ inputs.readme-file }}
-        SCHEMA_FILE: ${{ inputs.schema-file }}
         CHECK: ${{ inputs.check }}
         DRY_RUN: ${{ inputs.dry-run }}
         BINARY: ${{ inputs.binary }}
@@ -164,9 +162,9 @@ runs:
           exit 0
         fi
 
+        # helm-scribe writes all outputs under the chart directory, so diffing
+        # that path covers both the README table and the schema.
         paths=("${CHART_DIR}")
-        [ -n "${README_FILE}" ] && paths+=("${README_FILE}")
-        [ -n "${SCHEMA_FILE}" ] && paths+=("${SCHEMA_FILE}")
 
         # Intent-to-add so newly created files show up in the diff.
         git add --intent-to-add -- "${paths[@]}" 2>/dev/null || true
