@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -40,3 +40,12 @@ jobs:
             find dist \( -name '*.tar.gz' -o -name '*.zip' \) -printf '%f\t%s\n' | \
               awk -F'\t' '{ printf "| `%s` | %.1f MB |\n", $1, $2/1048576 }'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Move major tag
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          major="v${tag#v}"
+          major="${major%%.*}"
+          git tag -f "${major}" "${tag}"
+          git push -f origin "refs/tags/${major}"

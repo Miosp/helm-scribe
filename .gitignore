@@ -32,3 +32,4 @@ go.work.sum
 !.goreleaser.yml
 helm-scribe
 docs/
+.test-fixture/
